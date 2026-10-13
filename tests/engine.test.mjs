@@ -1,18 +1,170 @@
-import test from 'node:test';import assert from 'node:assert/strict';
-import {initial,actions,advance,inCheck,outcome,key} from '../public/engine.js';import {choose} from '../public/ai.js';
-const i=(x,y)=>y*9+x,has=(s,f,t,skill)=>actions(s).some(a=>a.from===f&&a.to===t&&(a.skill||null)===(skill||null));
-function sparse(mode='classic',loadout=['horse','elephant','dash']){const s=initial(mode,loadout);s.board=Array(90).fill(null);s.board[4]={c:'b',t:'k'};s.board[85]={c:'r',t:'k'};s.board[49]={c:'r',t:'p'};return s;}
-test('标准开局有 32 枚棋子及 44 种合法走法',()=>{const s=initial();assert.equal(s.board.filter(Boolean).length,32);assert.equal(actions(s).length,44);});
-test('马腿与跃马',()=>{const s=sparse('skills');s.board[i(1,7)]={c:'r',t:'h'};s.board[i(1,6)]={c:'r',t:'p'};assert.equal(has(s,i(1,7),i(2,5)),false);assert.equal(has(s,i(1,7),i(2,5),'horse'),true);});
-test('象眼与飞象，不能过河',()=>{const s=sparse('skills');s.board[i(0,7)]={c:'r',t:'e'};s.board[i(1,6)]={c:'r',t:'p'};assert.equal(has(s,i(0,7),i(2,5)),false);assert.equal(has(s,i(0,7),i(2,5),'elephant'),true);s.board[i(2,5)]={c:'r',t:'e'};assert.equal(has(s,i(2,5),i(4,3),'elephant'),false);});
-test('炮必须隔一子吃子',()=>{const s=sparse();s.board[i(0,7)]={c:'r',t:'c'};s.board[i(0,3)]={c:'b',t:'r'};assert.equal(has(s,i(0,7),i(0,3)),false);s.board[i(0,5)]={c:'r',t:'p'};assert.equal(has(s,i(0,7),i(0,3)),true);s.board[i(0,4)]={c:'b',t:'p'};assert.equal(has(s,i(0,7),i(0,3)),false);});
-test('兵过河才可横走，不能后退',()=>{const s=sparse();s.board[i(0,6)]={c:'r',t:'p'};assert.equal(has(s,i(0,6),i(1,6)),false);s.board[i(0,4)]={c:'r',t:'p'};assert.equal(has(s,i(0,4),i(1,4)),true);assert.equal(has(s,i(0,4),i(0,5)),false);});
-test('将帅照面时不能移开唯一阻挡',()=>{const s=sparse();s.board[85]=null;s.board[86]={c:'r',t:'k'};s.board[49]=null;s.board[4]=null;s.board[5]={c:'b',t:'k'};s.board[50]={c:'r',t:'r'};assert.equal(has(s,50,51),false);});
-test('疾行路径必须全空、回马只可用于过河兵',()=>{const s=sparse('skills',['dash','retreat','revive']);s.board[i(0,6)]={c:'r',t:'p'};assert.equal(has(s,i(0,6),i(0,4),'dash'),true);s.board[i(0,5)]={c:'b',t:'p'};assert.equal(has(s,i(0,6),i(0,4),'dash'),false);assert.equal(has(s,i(0,6),i(0,7),'retreat'),false);s.board[i(2,4)]={c:'r',t:'p'};assert.equal(has(s,i(2,4),i(2,5),'retreat'),true);});
-test('移形与援军消耗资源并每局一次',()=>{const s=sparse('skills',['swap','revive','dash']);s.energy.r=5;s.board[81]={c:'r',t:'r'};s.board[82]={c:'r',t:'h'};const a=actions(s).find(a=>a.skill==='swap');assert.ok(a);const n=advance(s,a);assert.equal(n.energy.r,1);assert.equal(n.used.r.swap,true);assert.equal(n.board[a.from],s.board[a.to]);const t=sparse('skills',['swap','revive','dash']);t.energy.r=5;t.lost.r=1;const r=actions(t).find(a=>a.skill==='revive');assert.ok(r);const u=advance(t,r);assert.equal(u.board[r.to].t,'p');assert.equal(u.lost.r,0);assert.equal(u.used.r.revive,true);});
-test('冷却与谋略恢复，输入状态保持不变',()=>{const s=sparse('skills');s.board[64]={c:'r',t:'h'};s.board[55]={c:'r',t:'p'};const before=JSON.stringify(s),a=actions(s).find(a=>a.skill==='horse');assert.ok(a);let n=advance(s,a);assert.equal(n.energy.r,0);assert.equal(n.cool.r.horse,4);n=advance(n,actions(n)[0]);assert.equal(n.energy.r,1);assert.equal(n.cool.r.horse,3);assert.equal(JSON.stringify(s),before);});
-test('将死及困毙均判负',()=>{const s=sparse();s.turn='b';s.board[49]=null;s.board[3]={c:'r',t:'r'};s.board[12]={c:'r',t:'r'};s.board[5]={c:'r',t:'r'};s.board[14]={c:'r',t:'r'};s.board[22]={c:'r',t:'r'};assert.equal(outcome(s).winner,'r');});
-test('三次重复和棋与单方长将判负',()=>{const s=initial(),k=key(s);s.records=[{key:k,turn:'r',check:false},{key:'other',turn:'b',check:false},{key:k,turn:'r',check:false},{key:'other',turn:'b',check:false},{key:k,turn:'r',check:false}];assert.equal(outcome(s).winner,null);s.records[1].check=s.records[3].check=true;assert.equal(outcome(s).winner,'b');});
-test('两个模式的 AI 合法行动、不修改状态、可连续对弈',()=>{for(const mode of ['classic','skills']){let s=initial(mode);for(let n=0;n<8;n++){const before=JSON.stringify(s),r=choose(s,'easy',100);assert.ok(r);assert.ok(actions(s).some(a=>JSON.stringify(a)===JSON.stringify(r.action)));assert.equal(JSON.stringify(s),before);s=advance(s,r.action);assert.equal(inCheck(s,s.turn==='r'?'b':'r'),false);}}});
-test('AI 会利用跃马吃掉高价值目标',()=>{const s=sparse('skills');s.board[64]={c:'r',t:'h'};s.board[55]={c:'r',t:'p'};s.board[47]={c:'b',t:'r'};const r=choose(s,'easy',200);assert.equal(r.action.to,47);assert.equal(r.action.skill,'horse');});
-
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  initial,
+  actions,
+  advance,
+  inCheck,
+  outcome,
+  key,
+} from "../public/engine.js";
+import { choose } from "../public/ai.js";
+const i = (x, y) => y * 9 + x,
+  has = (s, f, t, skill) =>
+    actions(s).some(
+      (a) =>
+        a.from === f && a.to === t && (a.skill || null) === (skill || null),
+    );
+function sparse(mode = "classic", loadout = ["horse", "elephant", "dash"]) {
+  const s = initial(mode, loadout);
+  s.board = Array(90).fill(null);
+  s.board[4] = { c: "b", t: "k" };
+  s.board[85] = { c: "r", t: "k" };
+  s.board[49] = { c: "r", t: "p" };
+  return s;
+}
+test("标准开局有 32 枚棋子及 44 种合法走法", () => {
+  const s = initial();
+  assert.equal(s.board.filter(Boolean).length, 32);
+  assert.equal(actions(s).length, 44);
+});
+test("马腿与跃马", () => {
+  const s = sparse("skills");
+  s.board[i(1, 7)] = { c: "r", t: "h" };
+  s.board[i(1, 6)] = { c: "r", t: "p" };
+  assert.equal(has(s, i(1, 7), i(2, 5)), false);
+  assert.equal(has(s, i(1, 7), i(2, 5), "horse"), true);
+});
+test("象眼与飞象，不能过河", () => {
+  const s = sparse("skills");
+  s.board[i(0, 7)] = { c: "r", t: "e" };
+  s.board[i(1, 6)] = { c: "r", t: "p" };
+  assert.equal(has(s, i(0, 7), i(2, 5)), false);
+  assert.equal(has(s, i(0, 7), i(2, 5), "elephant"), true);
+  s.board[i(2, 5)] = { c: "r", t: "e" };
+  assert.equal(has(s, i(2, 5), i(4, 3), "elephant"), false);
+});
+test("炮必须隔一子吃子", () => {
+  const s = sparse();
+  s.board[i(0, 7)] = { c: "r", t: "c" };
+  s.board[i(0, 3)] = { c: "b", t: "r" };
+  assert.equal(has(s, i(0, 7), i(0, 3)), false);
+  s.board[i(0, 5)] = { c: "r", t: "p" };
+  assert.equal(has(s, i(0, 7), i(0, 3)), true);
+  s.board[i(0, 4)] = { c: "b", t: "p" };
+  assert.equal(has(s, i(0, 7), i(0, 3)), false);
+});
+test("兵过河才可横走，不能后退", () => {
+  const s = sparse();
+  s.board[i(0, 6)] = { c: "r", t: "p" };
+  assert.equal(has(s, i(0, 6), i(1, 6)), false);
+  s.board[i(0, 4)] = { c: "r", t: "p" };
+  assert.equal(has(s, i(0, 4), i(1, 4)), true);
+  assert.equal(has(s, i(0, 4), i(0, 5)), false);
+});
+test("将帅照面时不能移开唯一阻挡", () => {
+  const s = sparse();
+  s.board[85] = null;
+  s.board[86] = { c: "r", t: "k" };
+  s.board[49] = null;
+  s.board[4] = null;
+  s.board[5] = { c: "b", t: "k" };
+  s.board[50] = { c: "r", t: "r" };
+  assert.equal(has(s, 50, 51), false);
+});
+test("疾行路径必须全空、回马只可用于过河兵", () => {
+  const s = sparse("skills", ["dash", "retreat", "revive"]);
+  s.board[i(0, 6)] = { c: "r", t: "p" };
+  assert.equal(has(s, i(0, 6), i(0, 4), "dash"), true);
+  s.board[i(0, 5)] = { c: "b", t: "p" };
+  assert.equal(has(s, i(0, 6), i(0, 4), "dash"), false);
+  assert.equal(has(s, i(0, 6), i(0, 7), "retreat"), false);
+  s.board[i(2, 4)] = { c: "r", t: "p" };
+  assert.equal(has(s, i(2, 4), i(2, 5), "retreat"), true);
+});
+test("移形与援军消耗资源并每局一次", () => {
+  const s = sparse("skills", ["swap", "revive", "dash"]);
+  s.energy.r = 5;
+  s.board[81] = { c: "r", t: "r" };
+  s.board[82] = { c: "r", t: "h" };
+  const a = actions(s).find((a) => a.skill === "swap");
+  assert.ok(a);
+  const n = advance(s, a);
+  assert.equal(n.energy.r, 1);
+  assert.equal(n.used.r.swap, true);
+  assert.equal(n.board[a.from], s.board[a.to]);
+  const t = sparse("skills", ["swap", "revive", "dash"]);
+  t.energy.r = 5;
+  t.lost.r = 1;
+  const r = actions(t).find((a) => a.skill === "revive");
+  assert.ok(r);
+  const u = advance(t, r);
+  assert.equal(u.board[r.to].t, "p");
+  assert.equal(u.lost.r, 0);
+  assert.equal(u.used.r.revive, true);
+});
+test("冷却与谋略恢复，输入状态保持不变", () => {
+  const s = sparse("skills");
+  s.board[64] = { c: "r", t: "h" };
+  s.board[55] = { c: "r", t: "p" };
+  const before = JSON.stringify(s),
+    a = actions(s).find((a) => a.skill === "horse");
+  assert.ok(a);
+  let n = advance(s, a);
+  assert.equal(n.energy.r, 0);
+  assert.equal(n.cool.r.horse, 4);
+  n = advance(n, actions(n)[0]);
+  assert.equal(n.energy.r, 1);
+  assert.equal(n.cool.r.horse, 3);
+  assert.equal(JSON.stringify(s), before);
+});
+test("将死及困毙均判负", () => {
+  const s = sparse();
+  s.turn = "b";
+  s.board[49] = null;
+  s.board[3] = { c: "r", t: "r" };
+  s.board[12] = { c: "r", t: "r" };
+  s.board[5] = { c: "r", t: "r" };
+  s.board[14] = { c: "r", t: "r" };
+  s.board[22] = { c: "r", t: "r" };
+  assert.equal(outcome(s).winner, "r");
+});
+test("三次重复和棋与单方长将判负", () => {
+  const s = initial(),
+    k = key(s);
+  s.records = [
+    { key: k, turn: "r", check: false },
+    { key: "other", turn: "b", check: false },
+    { key: k, turn: "r", check: false },
+    { key: "other", turn: "b", check: false },
+    { key: k, turn: "r", check: false },
+  ];
+  assert.equal(outcome(s).winner, null);
+  s.records[1].check = s.records[3].check = true;
+  assert.equal(outcome(s).winner, "b");
+});
+test("两个模式的 AI 合法行动、不修改状态、可连续对弈", () => {
+  for (const mode of ["classic", "skills"]) {
+    let s = initial(mode);
+    for (let n = 0; n < 8; n++) {
+      const before = JSON.stringify(s),
+        r = choose(s, "easy", 100);
+      assert.ok(r);
+      assert.ok(
+        actions(s).some((a) => JSON.stringify(a) === JSON.stringify(r.action)),
+      );
+      assert.equal(JSON.stringify(s), before);
+      s = advance(s, r.action);
+      assert.equal(inCheck(s, s.turn === "r" ? "b" : "r"), false);
+    }
+  }
+});
+test("AI 会利用跃马吃掉高价值目标", () => {
+  const s = sparse("skills");
+  s.board[64] = { c: "r", t: "h" };
+  s.board[55] = { c: "r", t: "p" };
+  s.board[47] = { c: "b", t: "r" };
+  const r = choose(s, "easy", 200);
+  assert.equal(r.action.to, 47);
+  assert.equal(r.action.skill, "horse");
+});

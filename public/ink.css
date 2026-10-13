@@ -1,2 +1,102 @@
 /* 宣纸、淡墨远山与朱砂印记，所有纹理本地加载。 */
-body{background-color:#f4f2e9;background-image:url('./ink.svg');background-size:100% auto;background-repeat:no-repeat;background-position:center bottom;background-attachment:fixed;--paper:#f4f2e9;--ink:#29312b;--green:#343e35;--line:#d9d8cd;--gold:#8e7e61}body:before{content:'';position:fixed;inset:0;pointer-events:none;opacity:.055;z-index:8;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' opacity='.6' filter='url(%23n)'/%3E%3C/svg%3E")}.board-wrap{background:radial-gradient(ellipse at 40% 30%,#f1ecda,#dedcc9);border:1px solid #92958270;box-shadow:inset 0 0 32px #5e695b13}.gridline{stroke:#777a67;stroke-width:1.15;opacity:.8}.river{fill:#727765}.board-panel{background:#faf9f0dd;box-shadow:0 8px 28px #35422b0b;border-radius:3px}.mode.active{background:#e3e6dd}.turn-card{background:#e4e7dc}.intro h1{font-weight:600}.intro:after{content:'弈';font:31px 'SimSun',serif;color:#a34434;border:2px solid #a34434;width:44px;height:49px;display:grid;place-items:center;transform:rotate(5deg);opacity:.8;margin-right:90px}.intro-note{margin-left:auto}.piece circle{stroke:#949980}.piece .inner{stroke:#a3a589}#result{background:#eae8d6ee}.seal{border-radius:1px;outline:1px solid #a34434;outline-offset:3px}.primary{background:linear-gradient(105deg,#303b32,#475045)}#toast{background:#343e35}@media(max-width:820px){.intro:after{margin-right:8px;width:34px;height:39px;font-size:25px}.intro h1{font-size:27px}}
+body {
+  background-color: #f4f2e9;
+  background-image: url("./ink.svg");
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-attachment: fixed;
+  --paper: #f4f2e9;
+  --ink: #29312b;
+  --green: #343e35;
+  --line: #d9d8cd;
+  --gold: #8e7e61;
+}
+body:before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.055;
+  z-index: 8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' opacity='.6' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.board-wrap {
+  background: radial-gradient(ellipse at 40% 30%, #f1ecda, #dedcc9);
+  border: 1px solid #92958270;
+  box-shadow: inset 0 0 32px #5e695b13;
+}
+.gridline {
+  stroke: #777a67;
+  stroke-width: 1.15;
+  opacity: 0.8;
+}
+.river {
+  fill: #727765;
+}
+.board-panel {
+  background: #faf9f0dd;
+  box-shadow: 0 8px 28px #35422b0b;
+  border-radius: 3px;
+}
+.mode.active {
+  background: #e3e6dd;
+}
+.turn-card {
+  background: #e4e7dc;
+}
+.intro h1 {
+  font-weight: 600;
+}
+.intro:after {
+  content: "弈";
+  font:
+    31px "SimSun",
+    serif;
+  color: #a34434;
+  border: 2px solid #a34434;
+  width: 44px;
+  height: 49px;
+  display: grid;
+  place-items: center;
+  transform: rotate(5deg);
+  opacity: 0.8;
+  margin-right: 90px;
+}
+.intro-note {
+  margin-left: auto;
+}
+.piece circle {
+  stroke: #949980;
+}
+.piece .inner {
+  stroke: #a3a589;
+}
+#result {
+  background: #eae8d6ee;
+}
+.seal {
+  border-radius: 1px;
+  outline: 1px solid #a34434;
+  outline-offset: 3px;
+}
+.primary {
+  background: linear-gradient(105deg, #303b32, #475045);
+}
+#toast {
+  background: #343e35;
+}
+@media (max-width: 820px) {
+  .intro:after {
+    margin-right: 8px;
+    width: 34px;
+    height: 39px;
+    font-size: 25px;
+  }
+  .intro h1 {
+    font-size: 27px;
+  }
+}
+.intro-note {
+  height: 110px;
+}

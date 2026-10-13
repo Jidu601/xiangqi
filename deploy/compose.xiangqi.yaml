@@ -1,0 +1,19 @@
+services:
+  xiangqi:
+    build: /srv/xiangqi
+    restart: unless-stopped
+    environment:
+      PORT: "3188"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - gateway
+networks:
+  gateway:
+    external: true
+    name: ${XIANGQI_GATEWAY_NETWORK:?Set to the existing web and Caddy shared Docker network}

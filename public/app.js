@@ -1,37 +1,766 @@
-import {initial,actions,advance,outcome,inCheck,SKILLS,pieceName,notation} from './engine.js';
-const $=id=>document.getElementById(id),svg=$('board'),NS='http://www.w3.org/2000/svg',SAVE='chuhe-qimou-v1';
-let state=initial(),history=[],logs=[],human='r',mode='classic',loadout=['horse','dash','swap'],clocks={r:0,b:0},limit=0,ended=null,selected=null,skill=null,legal=[],busy=false,worker=null,job=0,hintAction=null,replayIndex=null,toastTimer,lastTick=Date.now();
-function toast(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),3000);}
-function sound(capture=false){if(!$('sound').checked)return;try{const Audio=window.AudioContext||window.webkitAudioContext,ctx=new Audio(),o=ctx.createOscillator(),g=ctx.createGain();o.type='sine';o.frequency.setValueAtTime(capture?180:450,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(80,ctx.currentTime+.12);g.gain.setValueAtTime(.08,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.15);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+.16);o.onended=()=>ctx.close();}catch{}}
-function save(){try{localStorage.setItem(SAVE,JSON.stringify({version:1,state,history,logs,human,mode,loadout,clocks,limit,ended,difficulty:$('difficulty').value,assist:$('assist').checked,sound:$('sound').checked}));}catch{}}
-function cancelWorker(){job++;worker?.terminate();worker=null;busy=false;}
-function elm(tag,attrs={},text){const e=document.createElementNS(NS,tag);for(const[k,v]of Object.entries(attrs))e.setAttribute(k,v);if(text!==undefined)e.textContent=text;return e;}
-function pos(i){let x=i%9,y=Math.floor(i/9);if(human==='b'){x=8-x;y=9-y;}return [46+x*56,48+y*56];}
-function board(s){svg.replaceChildren();const defs=elm('defs');defs.innerHTML='<radialGradient id="pieceFill" cx="35%" cy="25%"><stop offset="0" stop-color="#faf5e7"/><stop offset="1" stop-color="#e8dec4"/></radialGradient><filter id="shadow" x="-30%" y="-30%" width="170%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="1.7" flood-color="#4b4638" flood-opacity=".22"/></filter>';svg.append(defs);
- for(let y=0;y<10;y++)svg.append(elm('line',{x1:46,y1:48+y*56,x2:494,y2:48+y*56,class:'gridline'}));for(let x=0;x<9;x++){if(x===0||x===8)svg.append(elm('line',{x1:46+x*56,y1:48,x2:46+x*56,y2:552,class:'gridline'}));else for(const [a,b]of [[48,272],[328,552]])svg.append(elm('line',{x1:46+x*56,y1:a,x2:46+x*56,y2:b,class:'gridline'}));}
- for(const y of [48,440])for(const flip of [false,true])svg.append(elm('line',{x1:214,y1:flip?y+112:y,x2:326,y2:flip?y:y+112,class:'gridline'}));svg.append(elm('rect',{x:38,y:40,width:464,height:520,fill:'none',stroke:'#7a7867','stroke-width':2}));svg.append(elm('text',{x:156,y:310,'text-anchor':'middle',class:'river'},'楚 河'));svg.append(elm('text',{x:384,y:310,'text-anchor':'middle',class:'river'},'漢 界'));
- for(let x=0;x<9;x++)svg.append(elm('text',{x:46+x*56,y:585,'text-anchor':'middle',fill:'#888575','font-size':11},String(human==='r'?9-x:x+1)));
- if(s.last)for(const i of [s.last.from,s.last.to])if(i>=0){const[x,y]=pos(i);svg.append(elm('rect',{x:x-25,y:y-25,width:50,height:50,rx:4,class:'last-mark'}));}
- for(let i=0;i<90;i++){const[x,y]=pos(i),g=elm('g',{'data-index':i,tabindex:s.board[i]?0:-1,role:'button','aria-label':s.board[i]?pieceName(s.board[i])+' '+('ABCDEFGHI'[i%9])+(10-Math.floor(i/9)):'空位'});g.append(elm('rect',{x:x-28,y:y-28,width:56,height:56,class:'square'}));const p=s.board[i];if(p){g.setAttribute('class','piece '+(p.c==='r'?'red':'black')+(selected===i?' selected':'')+(p.t==='k'&&inCheck(s,p.c)?' checked':''));g.append(elm('circle',{cx:x,cy:y,r:24}));g.append(elm('circle',{cx:x,cy:y,r:20,class:'inner'}));g.append(elm('text',{x,y:y+10,'text-anchor':'middle'},pieceName(p)));}svg.append(g);}
- let targets=[];if(replayIndex===null){if(skill==='revive')targets=legal.filter(a=>a.skill==='revive');else if(selected!==null)targets=legal.filter(a=>(a.from===selected||(a.skill==='swap'&&a.to===selected))&&(a.skill||null)===skill);if(hintAction)targets=[hintAction];}
- if($('assist').checked||skill||hintAction)for(const a of targets){const target=a.skill==='swap'&&a.to===selected?a.from:a.to,[x,y]=pos(target);svg.append(elm('circle',{cx:x,cy:y,r:s.board[target]?25:7,class:s.board[target]?'capture-ring':'destination'}));}
+import {
+  initial,
+  actions,
+  advance,
+  outcome,
+  inCheck,
+  SKILLS,
+  pieceName,
+  notation,
+} from "./engine.js";
+const $ = (id) => document.getElementById(id),
+  svg = $("board"),
+  NS = "http://www.w3.org/2000/svg",
+  SAVE = "chuhe-qimou-v1";
+let state = initial(),
+  history = [],
+  logs = [],
+  human = "r",
+  mode = "classic",
+  loadout = ["horse", "dash", "swap"],
+  clocks = { r: 0, b: 0 },
+  limit = 0,
+  ended = null,
+  selected = null,
+  skill = null,
+  legal = [],
+  busy = false,
+  worker = null,
+  job = 0,
+  hintAction = null,
+  replayIndex = null,
+  toastTimer,
+  lastTick = Date.now();
+function toast(t) {
+  $("toast").textContent = t;
+  $("toast").classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $("toast").classList.remove("show"), 3000);
 }
-function skillState(id,c=human){const t=SKILLS.find(x=>x.id===id);if(state.used[c][id])return '本局已用';if(state.cool[c][id])return '冷却 '+state.cool[c][id]+' 回合';if(state.energy[c]<t.cost)return '谋略不足';return '可使用';}
-function render(){const s=replayIndex===null?state:(replayIndex===history.length?state:history[replayIndex].state);legal=actions(state);if(!ended)ended=outcome(state,legal);board(s);document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));$('modeTag').textContent=state.mode==='skills'?'奇谋':'经典';$('loadoutPanel').hidden=mode!=='skills';$('skillPanel').hidden=state.mode!=='skills';$('yourInfo').textContent=(human==='r'?'红方':'黑方')+(state.turn===human?'行棋':'等待')+' / 第 '+(Math.floor(s.ply/2)+1)+' 回合';$('opponentInfo').textContent='人机对手 / '+(human==='r'?'黑方':'红方');$('opponentName').textContent='墨客 · '+({easy:'入门',medium:'进阶',hard:'挑战'}[$('difficulty').value]);$('turnLabel').textContent=s.turn==='r'?'红方行棋':'黑方行棋';$('turnNumber').textContent=String(Math.floor(s.ply/2)+1).padStart(2,'0');$('turnDetail').textContent=replayIndex!==null?'回看棋局，观往知来。':inCheck(state)?'将军！请先保护你的将帅。':'静观棋势，落子无悔。';$('yourEnergy').textContent=state.mode==='skills'?'谋略 '+state.energy[human]+'/5':'';const enemy=human==='r'?'b':'r';$('opponentEnergy').textContent=state.mode==='skills'?'谋略 '+state.energy[enemy]+'/5':'';$('energyLabel').textContent=state.energy[human]+' / 5';$('status').textContent=replayIndex!==null?'正在回看棋局。':ended?(ended.reason+' · '+(ended.winner===null?'和棋':ended.winner===human?'你获胜了':'墨客获胜')):busy?'墨客正在思考…':skill?SKILLS.find(x=>x.id===skill).name+'：'+(skill==='revive'?'点击空着的初始兵位。':'选择己方棋子，再选目标。'):inCheck(state)?'将军！选择能解将的行动。':'轮到你了，请落子。';$('statusDot').style.background=inCheck(state)?'#a34434':'#688675';
- $('skillCards').replaceChildren();for(const id of state.loadout[human]){const t=SKILLS.find(x=>x.id===id),b=document.createElement('button');b.className='skill-card'+(skill===id?' active':'');b.dataset.skill=id;b.title=t.desc;b.innerHTML='<span class="symbol">'+t.mark+'</span><span><b>'+t.name+'</b><small>'+skillState(id)+'</small></span><span class="cost">'+t.cost+'</span>';b.disabled=busy||state.turn!==human||!!ended||replayIndex!==null||skillState(id)!=='可使用';b.onclick=()=>{skill=skill===id?null:id;selected=null;hintAction=null;render();};$('skillCards').append(b);}
- $('enemySkills').textContent=state.loadout[enemy].map(id=>SKILLS.find(x=>x.id===id).name+' · '+skillState(id,enemy)).join(' / ');
- $('history').replaceChildren();for(let i=0;i<logs.length;i++){const li=document.createElement('li'),n=document.createElement('span');n.textContent=String(i+1).padStart(2,'0');li.append(n,document.createTextNode(logs[i]));$('history').append(li);}if(!logs.length)$('history').innerHTML='<li class="empty-record">棋局初开，静候第一步。</li>';$('history').scrollTop=$('history').scrollHeight;
- $('undo').disabled=!history.length||replayIndex!==null;$('hint').disabled=busy||!!ended||state.turn!==human||replayIndex!==null;$('resign').disabled=!!ended||replayIndex!==null;$('replay').disabled=!history.length;$('replayBar').hidden=replayIndex===null;$('replayPosition').textContent='第 '+(replayIndex||0)+' / '+history.length+' 步';$('previous').disabled=replayIndex===0;$('next').disabled=replayIndex===history.length;
- $('result').hidden=!ended||replayIndex!==null;if(ended&&replayIndex===null){$('result').replaceChildren();const h=document.createElement('h2'),p=document.createElement('p'),b=document.createElement('button');h.textContent=ended.winner===null?'握手言和':ended.winner===human?'胜局已定':'再谋一局';p.textContent=ended.reason;b.textContent='回看这局棋';b.onclick=startReplay;$('result').append(h,p,b);}clockView();}
-function clockView(){const format=c=>!limit?'∞':Math.floor(Math.max(0,clocks[c])/60).toString().padStart(2,'0')+':'+Math.floor(Math.max(0,clocks[c])%60).toString().padStart(2,'0');$('yourClock').textContent=format(human);$('opponentClock').textContent=format(human==='r'?'b':'r');}
-function tick(){const now=Date.now(),elapsed=(now-lastTick)/1000;lastTick=now;if(limit&&!ended&&replayIndex===null){clocks[state.turn]-=elapsed;if(clocks[state.turn]<=0){clocks[state.turn]=0;ended={winner:state.turn==='r'?'b':'r',reason:'超时判负'};cancelWorker();render();save();}clockView();}}
-function play(a){tick();if(ended)return;const cap=state.board[a.to]&&a.skill!=='swap';history.push({state,clocks:{...clocks}});logs.push((state.turn==='r'?'红 · ':'黑 · ')+notation(state,a));state=advance(state,a);selected=skill=hintAction=null;sound(cap);render();save();lastTick=Date.now();if(!ended&&state.turn!==human)compute(false);}
-function compute(isHint){cancelWorker();busy=true;render();const id=++job;worker=new Worker(new URL('./worker.js',import.meta.url),{type:'module'});worker.onmessage=({data})=>{if(data.id!==job)return;busy=false;worker.terminate();worker=null;if(data.error){toast('计算失败，请重试。');render();return;}if(!data.action){render();return;}if(isHint){hintAction=data.action;skill=data.action.skill||null;selected=data.action.from<0?null:data.action.from;render();toast('建议：'+notation(state,data.action));}else{const a=legal.find(a=>JSON.stringify(a)===JSON.stringify(data.action));if(a)play(a);else{toast('计算结果失效，请重新计算。');render();}}};worker.onerror=()=>{cancelWorker();toast('人机计算无法启动，请刷新重试。');render();};worker.postMessage({id,state,difficulty:$('difficulty').value});}
-function clicked(i){if(busy||ended||replayIndex!==null||state.turn!==human)return;hintAction=null;let a;if(skill==='revive')a=legal.find(a=>a.skill===skill&&a.to===i);else if(selected!==null)a=legal.find(a=>(a.skill||null)===skill&&((a.from===selected&&a.to===i)||(skill==='swap'&&a.to===selected&&a.from===i)));if(a){if(a.skill&&!confirm('释放「'+SKILLS.find(x=>x.id===a.skill).name+'」？消耗 '+SKILLS.find(x=>x.id===a.skill).cost+' 点谋略，并完成本回合行动。'))return;play(a);return;}if(state.board[i]?.c===human){selected=selected===i?null:i;render();}else{toast('此处不能落子，请选择合法目标。');}}
-svg.addEventListener('click',e=>{const g=e.target.closest('[data-index]');if(g)clicked(Number(g.dataset.index));});svg.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();const g=e.target.closest('[data-index]');if(g)clicked(Number(g.dataset.index));}});
-function setupLoadout(){for(const t of SKILLS){const l=document.createElement('label'),i=document.createElement('input');i.type='checkbox';i.value=t.id;i.checked=loadout.includes(t.id);l.title=t.desc;i.onchange=()=>{if(i.checked&&loadout.length>=3){i.checked=false;toast('最多携带三个技能。');return;}loadout=[...$('loadout').querySelectorAll('input:checked')].map(x=>x.value);$('loadoutCount').textContent=loadout.length+' / 3';};l.append(i,document.createTextNode(' '+t.name));$('loadout').append(l);}}
-function newGame(){if(mode==='skills'&&loadout.length!==3){toast('请先选择三个技能。');return;}if(state.ply&&!confirm('开启新局？当前棋局将被替换。'))return;cancelWorker();human=$('side').value;limit=Number($('time').value);clocks={r:limit,b:limit};state=initial(mode,loadout);history=[];logs=[];ended=null;selected=skill=hintAction=replayIndex=null;lastTick=Date.now();render();save();if(state.turn!==human)compute(false);}
-document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;render();if(mode!==state.mode)toast('已选择'+(mode==='skills'?'技能':'经典')+'模式，点击开启新局生效。');});$('newGame').onclick=newGame;$('undo').onclick=()=>{cancelWorker();let target=history.length-1;while(target>0&&history[target].state.turn!==human)target--;const snapshot=history[target];if(!snapshot)return;state=snapshot.state;clocks={...snapshot.clocks};history=history.slice(0,target);logs=logs.slice(0,target);ended=null;selected=skill=hintAction=null;lastTick=Date.now();render();save();if(state.turn!==human)compute(false);};$('hint').onclick=()=>compute(true);$('cancel').onclick=()=>{selected=skill=hintAction=null;render();};$('assist').onchange=()=>{render();save();};$('sound').onchange=save;$('difficulty').onchange=()=>{render();save();};$('resign').onclick=()=>{if(confirm('确认认输并结束这局棋？')){cancelWorker();ended={winner:human==='r'?'b':'r',reason:'主动认输'};render();save();}};
-function startReplay(){cancelWorker();replayIndex=history.length;selected=skill=hintAction=null;render();} $('replay').onclick=startReplay;$('previous').onclick=()=>{replayIndex=Math.max(0,replayIndex-1);render();};$('next').onclick=()=>{replayIndex=Math.min(history.length,replayIndex+1);render();};$('exitReplay').onclick=()=>{replayIndex=null;lastTick=Date.now();render();if(!ended&&state.turn!==human)compute(false);};$('export').onclick=()=>{const text='楚河·奇谋 / '+(state.mode==='skills'?'技能象棋':'经典象棋')+'\n'+(state.mode==='skills'?'携带技能：'+state.loadout[human].map(id=>SKILLS.find(x=>x.id===id).name).join('、')+'\n':'')+logs.map((x,i)=>(i+1)+'. '+x).join('\n')+'\n'+(ended?ended.reason:'对局进行中');const u=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=u;a.download='楚河奇谋-棋谱.txt';a.click();setTimeout(()=>URL.revokeObjectURL(u),5000);};$('rulesBtn').onclick=()=>$('rules').showModal();$('closeRules').onclick=()=>$('rules').close();$('skillRules').innerHTML=SKILLS.map(t=>'<p><b>'+t.name+' · '+t.cost+' 点</b> — '+t.desc+'</p>').join('');window.addEventListener('beforeunload',()=>{tick();save();});document.addEventListener('visibilitychange',()=>{tick();save();});window.addEventListener('keydown',e=>{if(e.key==='Escape'){selected=skill=hintAction=null;render();}});
-try{const d=JSON.parse(localStorage.getItem(SAVE));if(d?.version===1&&d.state?.board?.length===90&&Array.isArray(d.history)&&Array.isArray(d.logs)&&['r','b'].includes(d.human)){state=d.state;history=d.history;logs=d.logs;human=d.human;mode=d.mode;loadout=d.loadout;clocks=d.clocks;limit=d.limit;ended=d.ended;$('difficulty').value=d.difficulty;$('assist').checked=d.assist;$('sound').checked=d.sound;$('side').value=human;$('time').value=String(limit);actions(state);}}catch{state=initial();history=[];logs=[];toast('存档无法读取，已开启新局。');}
-setupLoadout();render();setInterval(tick,250);setInterval(save,5000);if(!ended&&state.turn!==human)compute(false);
+function sound(capture = false) {
+  if (!$("sound").checked) return;
+  try {
+    const Audio = window.AudioContext || window.webkitAudioContext,
+      ctx = new Audio(),
+      o = ctx.createOscillator(),
+      g = ctx.createGain();
+    o.type = "sine";
+    o.frequency.setValueAtTime(capture ? 180 : 450, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.12);
+    g.gain.setValueAtTime(0.08, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + 0.16);
+    o.onended = () => ctx.close();
+  } catch {}
+}
+function save() {
+  try {
+    localStorage.setItem(
+      SAVE,
+      JSON.stringify({
+        version: 1,
+        state,
+        history,
+        logs,
+        human,
+        mode,
+        loadout,
+        clocks,
+        limit,
+        ended,
+        difficulty: $("difficulty").value,
+        assist: $("assist").checked,
+        sound: $("sound").checked,
+      }),
+    );
+  } catch {}
+}
+function cancelWorker() {
+  job++;
+  worker?.terminate();
+  worker = null;
+  busy = false;
+}
+function elm(tag, attrs = {}, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function pos(i) {
+  let x = i % 9,
+    y = Math.floor(i / 9);
+  if (human === "b") {
+    x = 8 - x;
+    y = 9 - y;
+  }
+  return [46 + x * 56, 48 + y * 56];
+}
+function board(s) {
+  svg.replaceChildren();
+  const defs = elm("defs");
+  defs.innerHTML =
+    '<radialGradient id="pieceFill" cx="35%" cy="25%"><stop offset="0" stop-color="#faf5e7"/><stop offset="1" stop-color="#e8dec4"/></radialGradient><filter id="shadow" x="-30%" y="-30%" width="170%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="1.7" flood-color="#4b4638" flood-opacity=".22"/></filter>';
+  svg.append(defs);
+  for (let y = 0; y < 10; y++)
+    svg.append(
+      elm("line", {
+        x1: 46,
+        y1: 48 + y * 56,
+        x2: 494,
+        y2: 48 + y * 56,
+        class: "gridline",
+      }),
+    );
+  for (let x = 0; x < 9; x++) {
+    if (x === 0 || x === 8)
+      svg.append(
+        elm("line", {
+          x1: 46 + x * 56,
+          y1: 48,
+          x2: 46 + x * 56,
+          y2: 552,
+          class: "gridline",
+        }),
+      );
+    else
+      for (const [a, b] of [
+        [48, 272],
+        [328, 552],
+      ])
+        svg.append(
+          elm("line", {
+            x1: 46 + x * 56,
+            y1: a,
+            x2: 46 + x * 56,
+            y2: b,
+            class: "gridline",
+          }),
+        );
+  }
+  for (const y of [48, 440])
+    for (const flip of [false, true])
+      svg.append(
+        elm("line", {
+          x1: 214,
+          y1: flip ? y + 112 : y,
+          x2: 326,
+          y2: flip ? y : y + 112,
+          class: "gridline",
+        }),
+      );
+  svg.append(
+    elm("rect", {
+      x: 38,
+      y: 40,
+      width: 464,
+      height: 520,
+      fill: "none",
+      stroke: "#7a7867",
+      "stroke-width": 2,
+    }),
+  );
+  svg.append(
+    elm(
+      "text",
+      { x: 156, y: 310, "text-anchor": "middle", class: "river" },
+      "楚 河",
+    ),
+  );
+  svg.append(
+    elm(
+      "text",
+      { x: 384, y: 310, "text-anchor": "middle", class: "river" },
+      "漢 界",
+    ),
+  );
+  for (let x = 0; x < 9; x++)
+    svg.append(
+      elm(
+        "text",
+        {
+          x: 46 + x * 56,
+          y: 585,
+          "text-anchor": "middle",
+          fill: "#888575",
+          "font-size": 11,
+        },
+        String(human === "r" ? 9 - x : x + 1),
+      ),
+    );
+  if (s.last)
+    for (const i of [s.last.from, s.last.to])
+      if (i >= 0) {
+        const [x, y] = pos(i);
+        svg.append(
+          elm("rect", {
+            x: x - 25,
+            y: y - 25,
+            width: 50,
+            height: 50,
+            rx: 4,
+            class: "last-mark",
+          }),
+        );
+      }
+  for (let i = 0; i < 90; i++) {
+    const [x, y] = pos(i),
+      g = elm("g", {
+        "data-index": i,
+        tabindex: s.board[i] ? 0 : -1,
+        role: "button",
+        "aria-label": s.board[i]
+          ? pieceName(s.board[i]) +
+            " " +
+            "ABCDEFGHI"[i % 9] +
+            (10 - Math.floor(i / 9))
+          : "空位",
+      });
+    g.append(
+      elm("rect", {
+        x: x - 28,
+        y: y - 28,
+        width: 56,
+        height: 56,
+        class: "square",
+      }),
+    );
+    const p = s.board[i];
+    if (p) {
+      g.setAttribute(
+        "class",
+        "piece " +
+          (p.c === "r" ? "red" : "black") +
+          (selected === i ? " selected" : "") +
+          (p.t === "k" && inCheck(s, p.c) ? " checked" : ""),
+      );
+      g.append(elm("circle", { cx: x, cy: y, r: 24 }));
+      g.append(elm("circle", { cx: x, cy: y, r: 20, class: "inner" }));
+      g.append(
+        elm("text", { x, y: y + 10, "text-anchor": "middle" }, pieceName(p)),
+      );
+    }
+    svg.append(g);
+  }
+  let targets = [];
+  if (replayIndex === null) {
+    if (skill === "revive") targets = legal.filter((a) => a.skill === "revive");
+    else if (selected !== null)
+      targets = legal.filter(
+        (a) =>
+          (a.from === selected || (a.skill === "swap" && a.to === selected)) &&
+          (a.skill || null) === skill,
+      );
+    if (hintAction) targets = [hintAction];
+  }
+  if ($("assist").checked || skill || hintAction)
+    for (const a of targets) {
+      const target = a.skill === "swap" && a.to === selected ? a.from : a.to,
+        [x, y] = pos(target);
+      svg.append(
+        elm("circle", {
+          cx: x,
+          cy: y,
+          r: s.board[target] ? 25 : 7,
+          class: s.board[target] ? "capture-ring" : "destination",
+        }),
+      );
+    }
+}
+function skillState(id, c = human) {
+  const t = SKILLS.find((x) => x.id === id);
+  if (state.used[c][id]) return "本局已用";
+  if (state.cool[c][id])
+    return (
+      "冷却 " +
+      Math.max(0, state.cool[c][id] - (state.turn === c ? 0 : 1)) +
+      " 回合"
+    );
+  if (state.energy[c] < t.cost) return "谋略不足";
+  return "可使用";
+}
+function render() {
+  const s =
+    replayIndex === null
+      ? state
+      : replayIndex === history.length
+        ? state
+        : history[replayIndex].state;
+  legal = actions(state);
+  if (!ended) ended = outcome(state, legal);
+  board(s);
+  const avatars = document.querySelectorAll(".player-id .avatar");
+  avatars[0].className = "avatar " + (human === "r" ? "black" : "red");
+  avatars[0].textContent = human === "r" ? "將" : "帥";
+  avatars[1].className = "avatar " + (human === "r" ? "red" : "black");
+  avatars[1].textContent = human === "r" ? "帥" : "將";
+  document
+    .querySelectorAll("[data-mode]")
+    .forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+  $("modeTag").textContent = state.mode === "skills" ? "奇谋" : "经典";
+  $("loadoutPanel").hidden = mode !== "skills";
+  $("skillPanel").hidden = state.mode !== "skills";
+  $("yourInfo").textContent =
+    (human === "r" ? "红方" : "黑方") +
+    (state.turn === human ? "行棋" : "等待") +
+    " / 第 " +
+    (Math.floor(s.ply / 2) + 1) +
+    " 回合";
+  $("opponentInfo").textContent =
+    "人机对手 / " + (human === "r" ? "黑方" : "红方");
+  $("opponentName").textContent =
+    "墨客 · " +
+    { easy: "入门", medium: "进阶", hard: "挑战" }[$("difficulty").value];
+  $("turnLabel").textContent = s.turn === "r" ? "红方行棋" : "黑方行棋";
+  $("turnNumber").textContent = String(Math.floor(s.ply / 2) + 1).padStart(
+    2,
+    "0",
+  );
+  $("turnDetail").textContent =
+    replayIndex !== null
+      ? "回看棋局，观往知来。"
+      : inCheck(state)
+        ? "将军！请先保护你的将帅。"
+        : "静观棋势，落子无悔。";
+  $("yourEnergy").textContent =
+    state.mode === "skills" ? "谋略 " + state.energy[human] + "/5" : "";
+  const enemy = human === "r" ? "b" : "r";
+  $("opponentEnergy").textContent =
+    state.mode === "skills" ? "谋略 " + state.energy[enemy] + "/5" : "";
+  $("energyLabel").textContent = state.energy[human] + " / 5";
+  $("status").textContent =
+    replayIndex !== null
+      ? "正在回看棋局。"
+      : ended
+        ? ended.reason +
+          " · " +
+          (ended.winner === null
+            ? "和棋"
+            : ended.winner === human
+              ? "你获胜了"
+              : "墨客获胜")
+        : busy
+          ? "墨客正在思考…"
+          : skill
+            ? SKILLS.find((x) => x.id === skill).name +
+              "：" +
+              (skill === "revive"
+                ? "点击空着的初始兵位。"
+                : "选择己方棋子，再选目标。")
+            : inCheck(state)
+              ? "将军！选择能解将的行动。"
+              : "轮到你了，请落子。";
+  $("statusDot").style.background = inCheck(state) ? "#a34434" : "#688675";
+  $("skillCards").replaceChildren();
+  for (const id of state.loadout[human]) {
+    const t = SKILLS.find((x) => x.id === id),
+      b = document.createElement("button");
+    b.className = "skill-card" + (skill === id ? " active" : "");
+    b.dataset.skill = id;
+    b.title = t.desc;
+    b.innerHTML =
+      '<span class="symbol">' +
+      t.mark +
+      "</span><span><b>" +
+      t.name +
+      "</b><small>" +
+      skillState(id) +
+      '</small></span><span class="cost">' +
+      t.cost +
+      "</span>";
+    b.disabled =
+      busy ||
+      state.turn !== human ||
+      !!ended ||
+      replayIndex !== null ||
+      skillState(id) !== "可使用";
+    b.onclick = () => {
+      skill = skill === id ? null : id;
+      selected = null;
+      hintAction = null;
+      render();
+    };
+    $("skillCards").append(b);
+  }
+  $("enemySkills").textContent = state.loadout[enemy]
+    .map(
+      (id) =>
+        SKILLS.find((x) => x.id === id).name + " · " + skillState(id, enemy),
+    )
+    .join(" / ");
+  $("history").replaceChildren();
+  for (let i = 0; i < logs.length; i++) {
+    const li = document.createElement("li"),
+      n = document.createElement("span");
+    n.textContent = String(i + 1).padStart(2, "0");
+    li.append(n, document.createTextNode(logs[i]));
+    $("history").append(li);
+  }
+  if (!logs.length)
+    $("history").innerHTML =
+      '<li class="empty-record">棋局初开，静候第一步。</li>';
+  $("history").scrollTop = $("history").scrollHeight;
+  $("undo").disabled = !history.length || replayIndex !== null;
+  $("hint").disabled =
+    busy || !!ended || state.turn !== human || replayIndex !== null;
+  $("resign").disabled = !!ended || replayIndex !== null;
+  $("replay").disabled = !history.length;
+  $("replayBar").hidden = replayIndex === null;
+  $("replayPosition").textContent =
+    "第 " + (replayIndex || 0) + " / " + history.length + " 步";
+  $("previous").disabled = replayIndex === 0;
+  $("next").disabled = replayIndex === history.length;
+  $("result").hidden = !ended || replayIndex !== null;
+  if (ended && replayIndex === null) {
+    $("result").replaceChildren();
+    const h = document.createElement("h2"),
+      p = document.createElement("p"),
+      b = document.createElement("button");
+    h.textContent =
+      ended.winner === null
+        ? "握手言和"
+        : ended.winner === human
+          ? "胜局已定"
+          : "再谋一局";
+    p.textContent = ended.reason;
+    b.textContent = "回看这局棋";
+    b.onclick = startReplay;
+    $("result").append(h, p, b);
+  }
+  clockView();
+}
+function clockView() {
+  const format = (c) =>
+    !limit
+      ? "∞"
+      : Math.floor(Math.max(0, clocks[c]) / 60)
+          .toString()
+          .padStart(2, "0") +
+        ":" +
+        Math.floor(Math.max(0, clocks[c]) % 60)
+          .toString()
+          .padStart(2, "0");
+  $("yourClock").textContent = format(human);
+  $("opponentClock").textContent = format(human === "r" ? "b" : "r");
+}
+function tick() {
+  const now = Date.now(),
+    elapsed = (now - lastTick) / 1000;
+  lastTick = now;
+  if (limit && !ended && replayIndex === null) {
+    clocks[state.turn] -= elapsed;
+    if (clocks[state.turn] <= 0) {
+      clocks[state.turn] = 0;
+      ended = { winner: state.turn === "r" ? "b" : "r", reason: "超时判负" };
+      cancelWorker();
+      render();
+      save();
+    }
+    clockView();
+  }
+}
+function play(a) {
+  tick();
+  if (ended) return;
+  const cap = state.board[a.to] && a.skill !== "swap";
+  history.push({ state, clocks: { ...clocks } });
+  logs.push((state.turn === "r" ? "红 · " : "黑 · ") + notation(state, a));
+  state = advance(state, a);
+  selected = skill = hintAction = null;
+  sound(cap);
+  render();
+  save();
+  lastTick = Date.now();
+  if (!ended && state.turn !== human) compute(false);
+}
+function compute(isHint) {
+  cancelWorker();
+  busy = true;
+  render();
+  const id = ++job;
+  worker = new Worker(new URL("./worker.js", import.meta.url), {
+    type: "module",
+  });
+  worker.onmessage = ({ data }) => {
+    if (data.id !== job) return;
+    busy = false;
+    worker.terminate();
+    worker = null;
+    if (data.error) {
+      toast("计算失败，请重试。");
+      render();
+      return;
+    }
+    if (!data.action) {
+      render();
+      return;
+    }
+    if (isHint) {
+      hintAction = data.action;
+      skill = data.action.skill || null;
+      selected = data.action.from < 0 ? null : data.action.from;
+      render();
+      toast("建议：" + notation(state, data.action));
+    } else {
+      const a = legal.find(
+        (a) => JSON.stringify(a) === JSON.stringify(data.action),
+      );
+      if (a) play(a);
+      else {
+        toast("计算结果失效，请重新计算。");
+        render();
+      }
+    }
+  };
+  worker.onerror = () => {
+    cancelWorker();
+    toast("人机计算无法启动，请刷新重试。");
+    render();
+  };
+  worker.postMessage({ id, state, difficulty: $("difficulty").value });
+}
+function clicked(i) {
+  if (busy || ended || replayIndex !== null || state.turn !== human) return;
+  hintAction = null;
+  let a;
+  if (skill === "revive")
+    a = legal.find((a) => a.skill === skill && a.to === i);
+  else if (selected !== null)
+    a = legal.find(
+      (a) =>
+        (a.skill || null) === skill &&
+        ((a.from === selected && a.to === i) ||
+          (skill === "swap" && a.to === selected && a.from === i)),
+    );
+  if (a) {
+    if (
+      a.skill &&
+      !confirm(
+        "释放「" +
+          SKILLS.find((x) => x.id === a.skill).name +
+          "」？消耗 " +
+          SKILLS.find((x) => x.id === a.skill).cost +
+          " 点谋略，并完成本回合行动。",
+      )
+    )
+      return;
+    play(a);
+    return;
+  }
+  if (state.board[i]?.c === human) {
+    selected = selected === i ? null : i;
+    render();
+  } else {
+    toast("此处不能落子，请选择合法目标。");
+  }
+}
+svg.addEventListener("click", (e) => {
+  const g = e.target.closest("[data-index]");
+  if (g) clicked(Number(g.dataset.index));
+});
+svg.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    const g = e.target.closest("[data-index]");
+    if (g) clicked(Number(g.dataset.index));
+  }
+});
+function setupLoadout() {
+  for (const t of SKILLS) {
+    const l = document.createElement("label"),
+      i = document.createElement("input");
+    i.type = "checkbox";
+    i.value = t.id;
+    i.checked = loadout.includes(t.id);
+    l.title = t.desc;
+    i.onchange = () => {
+      if (i.checked && loadout.length >= 3) {
+        i.checked = false;
+        toast("最多携带三个技能。");
+        return;
+      }
+      loadout = [...$("loadout").querySelectorAll("input:checked")].map(
+        (x) => x.value,
+      );
+      $("loadoutCount").textContent = loadout.length + " / 3";
+    };
+    l.append(i, document.createTextNode(" " + t.name));
+    $("loadout").append(l);
+  }
+}
+function newGame() {
+  if (mode === "skills" && loadout.length !== 3) {
+    toast("请先选择三个技能。");
+    return;
+  }
+  if (state.ply && !confirm("开启新局？当前棋局将被替换。")) return;
+  cancelWorker();
+  human = $("side").value;
+  limit = Number($("time").value);
+  clocks = { r: limit, b: limit };
+  state = initial(mode, loadout);
+  history = [];
+  logs = [];
+  ended = null;
+  selected = skill = hintAction = replayIndex = null;
+  lastTick = Date.now();
+  render();
+  save();
+  if (state.turn !== human) compute(false);
+}
+document.querySelectorAll("[data-mode]").forEach(
+  (b) =>
+    (b.onclick = () => {
+      mode = b.dataset.mode;
+      render();
+      if (mode !== state.mode)
+        toast(
+          "已选择" +
+            (mode === "skills" ? "技能" : "经典") +
+            "模式，点击开启新局生效。",
+        );
+    }),
+);
+$("newGame").onclick = newGame;
+$("undo").onclick = () => {
+  cancelWorker();
+  let target = history.length - 1;
+  while (target > 0 && history[target].state.turn !== human) target--;
+  const snapshot = history[target];
+  if (!snapshot) return;
+  state = snapshot.state;
+  clocks = { ...snapshot.clocks };
+  history = history.slice(0, target);
+  logs = logs.slice(0, target);
+  ended = null;
+  selected = skill = hintAction = null;
+  lastTick = Date.now();
+  render();
+  save();
+  if (state.turn !== human) compute(false);
+};
+$("hint").onclick = () => compute(true);
+$("cancel").onclick = () => {
+  selected = skill = hintAction = null;
+  render();
+};
+$("assist").onchange = () => {
+  render();
+  save();
+};
+$("sound").onchange = save;
+$("difficulty").onchange = () => {
+  render();
+  save();
+};
+$("resign").onclick = () => {
+  if (confirm("确认认输并结束这局棋？")) {
+    cancelWorker();
+    ended = { winner: human === "r" ? "b" : "r", reason: "主动认输" };
+    render();
+    save();
+  }
+};
+function startReplay() {
+  cancelWorker();
+  replayIndex = history.length;
+  selected = skill = hintAction = null;
+  render();
+}
+$("replay").onclick = startReplay;
+$("previous").onclick = () => {
+  replayIndex = Math.max(0, replayIndex - 1);
+  render();
+};
+$("next").onclick = () => {
+  replayIndex = Math.min(history.length, replayIndex + 1);
+  render();
+};
+$("exitReplay").onclick = () => {
+  replayIndex = null;
+  lastTick = Date.now();
+  render();
+  if (!ended && state.turn !== human) compute(false);
+};
+$("export").onclick = () => {
+  const text =
+    "楚河·奇谋 / " +
+    (state.mode === "skills" ? "技能象棋" : "经典象棋") +
+    "\n" +
+    (state.mode === "skills"
+      ? "携带技能：" +
+        state.loadout[human]
+          .map((id) => SKILLS.find((x) => x.id === id).name)
+          .join("、") +
+        "\n"
+      : "") +
+    logs.map((x, i) => i + 1 + ". " + x).join("\n") +
+    "\n" +
+    (ended ? ended.reason : "对局进行中");
+  const u = URL.createObjectURL(
+      new Blob([text], { type: "text/plain;charset=utf-8" }),
+    ),
+    a = document.createElement("a");
+  a.href = u;
+  a.download = "楚河奇谋-棋谱.txt";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(u), 5000);
+};
+$("rulesBtn").onclick = () => $("rules").showModal();
+$("closeRules").onclick = () => $("rules").close();
+$("skillRules").innerHTML = SKILLS.map(
+  (t) => "<p><b>" + t.name + " · " + t.cost + " 点</b> — " + t.desc + "</p>",
+).join("");
+window.addEventListener("beforeunload", () => {
+  tick();
+  save();
+});
+document.addEventListener("visibilitychange", () => {
+  tick();
+  save();
+});
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    selected = skill = hintAction = null;
+    render();
+  }
+});
+try {
+  const d = JSON.parse(localStorage.getItem(SAVE));
+  if (
+    d?.version === 1 &&
+    d.state?.board?.length === 90 &&
+    Array.isArray(d.history) &&
+    Array.isArray(d.logs) &&
+    ["r", "b"].includes(d.human)
+  ) {
+    state = d.state;
+    history = d.history;
+    logs = d.logs;
+    human = d.human;
+    mode = d.mode;
+    loadout = d.loadout;
+    clocks = d.clocks;
+    limit = d.limit;
+    ended = d.ended;
+    $("difficulty").value = d.difficulty;
+    $("assist").checked = d.assist;
+    $("sound").checked = d.sound;
+    $("side").value = human;
+    $("time").value = String(limit);
+    actions(state);
+  }
+} catch {
+  state = initial();
+  history = [];
+  logs = [];
+  toast("存档无法读取，已开启新局。");
+}
+setupLoadout();
+render();
+setInterval(tick, 250);
+setInterval(save, 5000);
+if (!ended && state.turn !== human) compute(false);

@@ -1,9 +1,206 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#182a27"><title>楚河·奇谋 — 一局棋，万般变化</title><link rel="icon" href="./icon.svg"><link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./ink.css"></head>
-<body><header><a class="brand" href="./"><span class="seal">楚</span><span>楚河<span class="dot">·</span>奇谋<small>CHUHE · QIMOU</small></span></a><div class="header-right"><span class="local-tag"><i></i> 浏览器内人机对战</span><button id="rulesBtn" class="quiet">玩法说明 ↗</button></div></header>
-<main><section class="intro"><div><span class="eyebrow">THE ART OF STRATEGY / 001</span><h1>落子之间，<em>自有奇谋。</em></h1><p>循古法对弈，或以奇谋破局。你的下一步，由你决定。</p></div><div class="intro-note"><span>楚河汉界</span><small>方寸之地 · 运筹帷幄</small></div></section>
-<div class="game-layout"><aside class="left-panel"><div class="section-label">01 / 选择棋局</div><div class="mode-switch"><button data-mode="classic" class="mode active"><b>经典象棋 <span>正</span></b><small>传统规则 · 步步为营</small></button><button data-mode="skills" class="mode"><b>技能象棋 <span>奇</span></b><small>六种奇谋 · 出奇制胜</small></button></div><div class="settings"><label>对手难度<select id="difficulty"><option value="easy">入门 · 从容练习</option><option value="medium" selected>进阶 · 认真较量</option><option value="hard">挑战 · 深思熟虑</option></select></label><label>我的阵营<select id="side"><option value="r">执红 · 先行</option><option value="b">执黑 · 后行</option></select></label><label>对局时间<select id="time"><option value="0">不限时</option><option value="600">每方 10 分钟</option><option value="300">每方 5 分钟</option></select></label><label class="toggle"><input id="assist" type="checkbox" checked> 显示可走位置</label><label class="toggle"><input id="sound" type="checkbox" checked> 落子音效</label><button id="newGame" class="primary">开启新局 <span>→</span></button></div><div id="loadoutPanel" hidden><div class="section-label">携带技能 <span id="loadoutCount">3 / 3</span></div><p class="muted">选择三个技能，开启新局后生效。双方携带相同技能。</p><div id="loadout"></div></div><div class="quote">“善弈者谋势，<br>不善弈者谋子。”<span>— 棋中有天地</span></div></aside>
-<section class="board-panel"><div class="player-bar"><div class="player-id"><span class="avatar black">將</span><div><b id="opponentName">墨客 · 进阶</b><small id="opponentInfo">人机对手 / 黑方</small></div></div><div class="player-stats"><span id="opponentEnergy"></span><b id="opponentClock">∞</b></div></div><div class="board-wrap"><svg id="board" viewBox="0 0 540 600" role="group" aria-label="象棋棋盘"></svg><div id="result" hidden></div></div><div class="player-bar bottom"><div class="player-id"><span class="avatar red">帥</span><div><b>执棋人 · 你</b><small id="yourInfo">红方先行 / 第 1 回合</small></div></div><div class="player-stats"><span id="yourEnergy"></span><b id="yourClock">∞</b></div></div><div class="board-status"><i id="statusDot"></i><span id="status" aria-live="polite">轮到你了，请落子。</span><button id="cancel" class="quiet">取消选择</button></div><div class="actions"><button id="undo">↶ 悔棋</button><button id="hint">✧ 提示一步</button><button id="replay">▷ 回看棋局</button><button id="resign">认输</button></div><div id="replayBar" hidden><button id="previous">← 上一步</button><span id="replayPosition"></span><button id="next">下一步 →</button><button id="exitReplay">返回对局</button></div></section>
-<aside class="right-panel"><div class="section-label">02 / 棋局动态 <span id="modeTag">经典</span></div><div class="turn-card"><span id="turnLabel">红方行棋</span><b id="turnNumber">01</b><small id="turnDetail">静观棋势，落子无悔。</small></div><section id="skillPanel" hidden><div class="section-label">我的奇谋 <span id="energyLabel">2 / 5</span></div><div id="skillCards"></div><p class="muted">每个己方回合恢复 1 点谋略。技能行动占用一步，结束后将帅必须安全。</p><div class="section-label">对手技能</div><div id="enemySkills"></div></section><div class="section-label record-title">落子记录 <button id="export" class="quiet">导出 ↓</button></div><ol id="history"><li class="empty-record">棋局初开，静候第一步。</li></ol><div class="side-note"><span>一局棋，万般变化。</span><p>自动保存于当前浏览器。<br>刷新页面，可接着下。</p></div></aside></div></main><footer><span>楚河·奇谋</span><span>经典之上，再添一招。</span><a href="/">返回个人主页 ↗</a></footer><div id="toast" role="status"></div>
-<dialog id="rules"><div class="dialog-heading"><span class="eyebrow">HOW TO PLAY</span><button id="closeRules" class="quiet">关闭 ×</button></div><h2>方寸棋盘，自有章法。</h2><p>点击己方棋子，再点击高亮落点。红方先行；将帅不能照面，任何行动都不能让己方将帅处于被将军状态。被将死或无合法行动（困毙）的一方输棋。</p><h3>经典象棋</h3><p>车走直线，马走日字且不能蹩腿，象走田字且不能塞眼、过河。士走九宫斜线，将帅走九宫直线一步。炮隔一个棋子吃子；兵卒只能前进，过河后可以横走。</p><h3>技能象棋</h3><p>开局携带三种公开技能。初始谋略值 2 点，每个己方回合开始恢复 1 点，上限 5 点。使用技能即完成本回合行动，可以用技能解将。移形和援军每局一次，其余技能使用后冷却三个己方回合。技能必须选中后再点棋子和目标；援军直接选择初始兵位。</p><div id="skillRules"></div><h3>和棋与长将</h3><p>相同局面出现三次：单方持续将军者判负，否则和棋。连续 60 回合没有吃子或走兵则和棋。本休闲版不实现竞赛规则中复杂长捉裁定。技能模式下资源、冷却也属于局面。</p><h3>练习与回看</h3><p>悔棋退回到你的上次行动，并恢复资源和时间；提示会计算当前合法行动。回看时棋盘不可操作，返回对局继续。新局、认输均需确认。</p></dialog><script type="module" src="./app.js"></script></body></html>
-
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#182a27" />
+    <title>楚河·奇谋 — 一局棋，万般变化</title>
+    <link rel="icon" href="./icon.svg" />
+    <link rel="stylesheet" href="./style.css" />
+    <link rel="stylesheet" href="./ink.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="./"
+        ><span class="seal">楚</span
+        ><span
+          >楚河<span class="dot">·</span>奇谋<small>CHUHE · QIMOU</small></span
+        ></a
+      >
+      <div class="header-right">
+        <span class="local-tag"><i></i> 浏览器内人机对战</span
+        ><button id="rulesBtn" class="quiet">玩法说明 ↗</button>
+      </div>
+    </header>
+    <main>
+      <section class="intro">
+        <div>
+          <span class="eyebrow">THE ART OF STRATEGY / 001</span>
+          <h1>落子之间，<em>自有奇谋。</em></h1>
+          <p>循古法对弈，或以奇谋破局。你的下一步，由你决定。</p>
+        </div>
+        <div class="intro-note">
+          <span>楚河汉界</span><small>方寸之地 · 运筹帷幄</small>
+        </div>
+      </section>
+      <div class="game-layout">
+        <aside class="left-panel">
+          <div class="section-label">01 / 选择棋局</div>
+          <div class="mode-switch">
+            <button data-mode="classic" class="mode active">
+              <b>经典象棋 <span>正</span></b
+              ><small>传统规则 · 步步为营</small></button
+            ><button data-mode="skills" class="mode">
+              <b>技能象棋 <span>奇</span></b
+              ><small>六种奇谋 · 出奇制胜</small>
+            </button>
+          </div>
+          <div class="settings">
+            <label
+              >对手难度<select id="difficulty">
+                <option value="easy">入门 · 从容练习</option>
+                <option value="medium" selected>进阶 · 认真较量</option>
+                <option value="hard">挑战 · 深思熟虑</option>
+              </select></label
+            ><label
+              >我的阵营<select id="side">
+                <option value="r">执红 · 先行</option>
+                <option value="b">执黑 · 后行</option>
+              </select></label
+            ><label
+              >对局时间<select id="time">
+                <option value="0">不限时</option>
+                <option value="600">每方 10 分钟</option>
+                <option value="300">每方 5 分钟</option>
+              </select></label
+            ><label class="toggle"
+              ><input id="assist" type="checkbox" checked /> 显示可走位置</label
+            ><label class="toggle"
+              ><input id="sound" type="checkbox" checked /> 落子音效</label
+            ><button id="newGame" class="primary">
+              开启新局 <span>→</span>
+            </button>
+          </div>
+          <div id="loadoutPanel" hidden>
+            <div class="section-label">
+              携带技能 <span id="loadoutCount">3 / 3</span>
+            </div>
+            <p class="muted">
+              选择三个技能，开启新局后生效。双方携带相同技能。
+            </p>
+            <div id="loadout"></div>
+          </div>
+          <div class="quote">
+            “善弈者谋势，<br />不善弈者谋子。”<span>— 棋中有天地</span>
+          </div>
+        </aside>
+        <section class="board-panel">
+          <div class="player-bar">
+            <div class="player-id">
+              <span class="avatar black">將</span>
+              <div>
+                <b id="opponentName">墨客 · 进阶</b
+                ><small id="opponentInfo">人机对手 / 黑方</small>
+              </div>
+            </div>
+            <div class="player-stats">
+              <span id="opponentEnergy"></span><b id="opponentClock">∞</b>
+            </div>
+          </div>
+          <div class="board-wrap">
+            <svg
+              id="board"
+              viewBox="0 0 540 600"
+              role="group"
+              aria-label="象棋棋盘"
+            ></svg>
+            <div id="result" hidden></div>
+          </div>
+          <div class="player-bar bottom">
+            <div class="player-id">
+              <span class="avatar red">帥</span>
+              <div>
+                <b>执棋人 · 你</b
+                ><small id="yourInfo">红方先行 / 第 1 回合</small>
+              </div>
+            </div>
+            <div class="player-stats">
+              <span id="yourEnergy"></span><b id="yourClock">∞</b>
+            </div>
+          </div>
+          <div class="board-status">
+            <i id="statusDot"></i
+            ><span id="status" aria-live="polite">轮到你了，请落子。</span
+            ><button id="cancel" class="quiet">取消选择</button>
+          </div>
+          <div class="actions">
+            <button id="undo">↶ 悔棋</button
+            ><button id="hint">✧ 提示一步</button
+            ><button id="replay">▷ 回看棋局</button
+            ><button id="resign">认输</button>
+          </div>
+          <div id="replayBar" hidden>
+            <button id="previous">← 上一步</button
+            ><span id="replayPosition"></span><button id="next">下一步 →</button
+            ><button id="exitReplay">返回对局</button>
+          </div>
+        </section>
+        <aside class="right-panel">
+          <div class="section-label">
+            02 / 棋局动态 <span id="modeTag">经典</span>
+          </div>
+          <div class="turn-card">
+            <span id="turnLabel">红方行棋</span><b id="turnNumber">01</b
+            ><small id="turnDetail">静观棋势，落子无悔。</small>
+          </div>
+          <section id="skillPanel" hidden>
+            <div class="section-label">
+              我的奇谋 <span id="energyLabel">2 / 5</span>
+            </div>
+            <div id="skillCards"></div>
+            <p class="muted">
+              每个己方回合恢复 1 点谋略。技能行动占用一步，结束后将帅必须安全。
+            </p>
+            <div class="section-label">对手技能</div>
+            <div id="enemySkills"></div>
+          </section>
+          <div class="section-label record-title">
+            落子记录 <button id="export" class="quiet">导出 ↓</button>
+          </div>
+          <ol id="history">
+            <li class="empty-record">棋局初开，静候第一步。</li>
+          </ol>
+          <div class="side-note">
+            <span>一局棋，万般变化。</span>
+            <p>自动保存于当前浏览器。<br />刷新页面，可接着下。</p>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <footer>
+      <span>楚河·奇谋</span><span>经典之上，再添一招。</span
+      ><a href="/">返回个人主页 ↗</a>
+    </footer>
+    <div id="toast" role="status"></div>
+    <dialog id="rules">
+      <div class="dialog-heading">
+        <span class="eyebrow">HOW TO PLAY</span
+        ><button id="closeRules" class="quiet">关闭 ×</button>
+      </div>
+      <h2>方寸棋盘，自有章法。</h2>
+      <p>
+        点击己方棋子，再点击高亮落点。红方先行；将帅不能照面，任何行动都不能让己方将帅处于被将军状态。被将死或无合法行动（困毙）的一方输棋。
+      </p>
+      <h3>经典象棋</h3>
+      <p>
+        车走直线，马走日字且不能蹩腿，象走田字且不能塞眼、过河。士走九宫斜线，将帅走九宫直线一步。炮隔一个棋子吃子；兵卒只能前进，过河后可以横走。
+      </p>
+      <h3>技能象棋</h3>
+      <p>
+        开局携带三种公开技能。初始谋略值 2 点，每个己方回合开始恢复 1 点，上限 5
+        点。使用技能即完成本回合行动，可以用技能解将。移形和援军每局一次，其余技能使用后冷却三个己方回合。技能必须选中后再点棋子和目标；援军直接选择初始兵位。
+      </p>
+      <div id="skillRules"></div>
+      <h3>和棋与长将</h3>
+      <p>
+        相同局面出现三次：单方持续将军者判负，否则和棋。连续 60
+        回合没有吃子或走兵则和棋。本休闲版不实现竞赛规则中复杂长捉裁定。技能模式下资源、冷却也属于局面。
+      </p>
+      <h3>练习与回看</h3>
+      <p>
+        悔棋退回到你的上次行动，并恢复资源和时间；提示会计算当前合法行动。回看时棋盘不可操作，返回对局继续。新局、认输均需确认。
+      </p>
+    </dialog>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

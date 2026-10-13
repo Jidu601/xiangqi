@@ -1,5 +1,49 @@
-import http from 'node:http';
-import {readFile} from 'node:fs/promises';
-import path from 'node:path';
-const root=path.resolve('public'),types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml'};
-http.createServer(async(req,res)=>{try{const u=new URL(req.url,'http://localhost');if(u.pathname==='/health'){res.writeHead(200,{'Content-Type':'application/json'});return res.end('{"status":"ok"}');}const pathname=decodeURIComponent(u.pathname).replace(/^\/games\/xiangqi(?=\/|$)/,'');const file=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));if(!file.startsWith(root+path.sep)){res.writeHead(403);return res.end();}const data=await readFile(file);res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream','X-Content-Type-Options':'nosniff','Cache-Control':file.endsWith('.png')?'public, max-age=3600':'no-cache'});res.end(data);}catch{res.writeHead(404);res.end('Not found');}}).listen(Number(process.env.PORT||3188),'0.0.0.0',()=>console.log('楚河·奇谋 http://localhost:'+(process.env.PORT||3188)));
+import http from "node:http";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+const root = path.resolve("public"),
+  types = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".svg": "image/svg+xml",
+  };
+http
+  .createServer(async (req, res) => {
+    try {
+      const u = new URL(req.url, "http://localhost");
+      if (u.pathname === "/health") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end('{"status":"ok"}');
+      }
+      const pathname = decodeURIComponent(u.pathname).replace(
+        /^\/games\/xiangqi(?=\/|$)/,
+        "",
+      );
+      const file = path.resolve(
+        root,
+        "." + (pathname === "/" ? "/index.html" : pathname),
+      );
+      if (!file.startsWith(root + path.sep)) {
+        res.writeHead(403);
+        return res.end();
+      }
+      const data = await readFile(file);
+      res.writeHead(200, {
+        "Content-Type": types[path.extname(file)] || "application/octet-stream",
+        "X-Content-Type-Options": "nosniff",
+        "Cache-Control": file.endsWith(".png")
+          ? "public, max-age=3600"
+          : "no-cache",
+      });
+      res.end(data);
+    } catch {
+      res.writeHead(404);
+      res.end("Not found");
+    }
+  })
+  .listen(Number(process.env.PORT || 3188), "0.0.0.0", () =>
+    console.log("楚河·奇谋 http://localhost:" + (process.env.PORT || 3188)),
+  );
