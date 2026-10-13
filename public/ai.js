@@ -1,4 +1,4 @@
-import { actions, advance, inCheck } from "./engine.js";
+import { actions, advance, inCheck, casualties } from "./engine.js";
 const V = { k: 100000, a: 120, e: 120, h: 300, r: 600, c: 330, p: 70 };
 function score(s) {
   let v = 0;
@@ -21,7 +21,13 @@ function score(s) {
 function ordered(s, m) {
   return m.sort((a, b) => {
     const value = (a) =>
-      (a.skill === "swap" ? 0 : V[s.board[a.to]?.t] || 0) * 10 -
+      casualties(s, a).reduce(
+        (sum, j) => sum + V[s.board[j].t] * (s.board[j].c === s.turn ? -1 : 1),
+        0,
+      ) *
+        10 +
+      (a.skill === "retreat" ? (V[s.board[a.to]?.t] || 0) * 18 : 0) +
+      (a.skill === "revive" ? (V[a.pieceType] || 0) * 8 : 0) -
       (V[s.board[a.from]?.t] || 0) / 20 -
       (a.skill ? 25 : 0);
     return value(b) - value(a);
@@ -37,7 +43,9 @@ export function choose(s, difficulty = "medium", budget) {
     nodes = 0,
     depthDone = 0;
   function search(n, depth, alpha, beta, ply) {
-    if ((++nodes & 63) === 0 && Date.now() > end) throw Error("timeout");
+    ++nodes;
+    if (Date.now() > end) throw Error("timeout");
+    if (depth === 0 && !inCheck(n)) return score(n);
     const m = ordered(n, actions(n));
     if (!m.length) return -100000 + ply;
     if (depth === 0) return score(n);

@@ -100,3 +100,88 @@ body:before {
 .intro-note {
   height: 110px;
 }
+.blast-preview {
+  fill: #a344341a;
+  stroke: #a34434;
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+  animation: inkDanger 1.2s ease-in-out infinite;
+}
+.blast-preview.friendly-fire {
+  fill: #a3443448;
+  stroke-width: 3;
+}
+.skill-effect {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  font:
+    clamp(26px, 5vw, 52px) "SimSun",
+    serif;
+  color: #a34434;
+  letter-spacing: 7px;
+  text-shadow: 0 2px 12px #faf3df;
+  z-index: 1;
+}
+.skill-effect.active {
+  animation: inkBurst 1.2s ease-out both;
+  background: radial-gradient(ellipse, #a344342b, transparent 65%);
+}
+.skill-effect.horse,
+.skill-effect.swap {
+  color: #364f40;
+  background: radial-gradient(ellipse, #3a4d392a, transparent 65%);
+}
+.skill-effect.revive {
+  color: #747b45;
+  background: radial-gradient(ellipse, #8294572b, transparent 65%);
+}
+#reviveType {
+  margin: 0 0 10px;
+  padding: 10px;
+  background: #ece9d8;
+}
+#skillDetail {
+  font-size: 11px;
+  color: #76664f;
+  border-left: 2px solid #a34434;
+  padding-left: 10px;
+  min-height: 38px;
+}
+@keyframes inkBurst {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+    filter: blur(7px);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+    filter: blur(3px);
+  }
+}
+@keyframes inkDanger {
+  50% {
+    fill: #a3443433;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skill-effect.active {
+    animation: none;
+    opacity: 1;
+  }
+  .blast-preview {
+    animation: none;
+  }
+}

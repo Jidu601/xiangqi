@@ -5,6 +5,9 @@ import {
   outcome,
   inCheck,
   SKILLS,
+  SKILL_RULES,
+  area,
+  casualties,
   pieceName,
   notation,
 } from "./engine.js";
@@ -17,7 +20,7 @@ let state = initial(),
   logs = [],
   human = "r",
   mode = "classic",
-  loadout = ["horse", "dash", "swap"],
+  loadout = ["horse", "dash", "retreat"],
   clocks = { r: 0, b: 0 },
   limit = 0,
   ended = null,
@@ -61,7 +64,7 @@ function save() {
     localStorage.setItem(
       SAVE,
       JSON.stringify({
-        version: 1,
+        version: 2,
         state,
         history,
         logs,
@@ -247,7 +250,12 @@ function board(s) {
   }
   let targets = [];
   if (replayIndex === null) {
-    if (skill === "revive") targets = legal.filter((a) => a.skill === "revive");
+    if (["revive", "retreat"].includes(skill))
+      targets = legal.filter(
+        (a) =>
+          a.skill === skill &&
+          (skill !== "revive" || a.pieceType === $("reviveType").value),
+      );
     else if (selected !== null)
       targets = legal.filter(
         (a) =>
@@ -273,13 +281,12 @@ function board(s) {
 function skillState(id, c = human) {
   const t = SKILLS.find((x) => x.id === id);
   if (state.used[c][id]) return "本局已用";
-  if (state.cool[c][id])
-    return (
-      "冷却 " +
-      Math.max(0, state.cool[c][id] - (state.turn === c ? 0 : 1)) +
-      " 回合"
-    );
+  if (state.cool[c][id]) {
+    const remaining = state.cool[c][id] - (state.turn === c ? 0 : 1);
+    return remaining > 0 ? "冷却 " + remaining + " 回合" : "下回合可用";
+  }
   if (state.energy[c] < t.cost) return "谋略不足";
+  if (c === state.turn && !legal.some((a) => a.skill === id)) return "暂无目标";
   return "可使用";
 }
 function render() {
@@ -326,11 +333,18 @@ function render() {
         ? "将军！请先保护你的将帅。"
         : "静观棋势，落子无悔。";
   $("yourEnergy").textContent =
-    state.mode === "skills" ? "谋略 " + state.energy[human] + "/5" : "";
+    state.mode === "skills"
+      ? "谋略 " + state.energy[human] + "/" + SKILL_RULES.cap
+      : "";
   const enemy = human === "r" ? "b" : "r";
   $("opponentEnergy").textContent =
-    state.mode === "skills" ? "谋略 " + state.energy[enemy] + "/5" : "";
-  $("energyLabel").textContent = state.energy[human] + " / 5";
+    state.mode === "skills"
+      ? "谋略 " + state.energy[enemy] + "/" + SKILL_RULES.cap
+      : "";
+  $("energyLabel").textContent = state.energy[human] + " / " + SKILL_RULES.cap;
+  $("skillDetail").textContent = skill
+    ? SKILLS.find((t) => t.id === skill).desc
+    : "点击技能查看效果，再选择目标。范围轰炸会误伤己方！";
   $("status").textContent =
     replayIndex !== null
       ? "正在回看棋局。"
@@ -348,12 +362,30 @@ function render() {
             ? SKILLS.find((x) => x.id === skill).name +
               "：" +
               (skill === "revive"
-                ? "点击空着的初始兵位。"
-                : "选择己方棋子，再选目标。")
+                ? "选择复活棋子，再点己方半场空位。"
+                : skill === "retreat"
+                  ? "点击敌方车、马、炮或兵，直接策反。"
+                  : "选择己方棋子，再选目标。")
             : inCheck(state)
               ? "将军！选择能解将的行动。"
               : "轮到你了，请落子。";
   $("statusDot").style.background = inCheck(state) ? "#a34434" : "#688675";
+  const reviveSelect = $("reviveType"),
+    oldType = reviveSelect.value;
+  reviveSelect.hidden = skill !== "revive";
+  reviveSelect.replaceChildren();
+  for (const type of [...new Set(state.grave?.[human] || [])].sort(
+    (a, b) =>
+      ["r", "c", "h", "e", "a", "p"].indexOf(a) -
+      ["r", "c", "h", "e", "a", "p"].indexOf(b),
+  )) {
+    const opt = document.createElement("option");
+    opt.value = type;
+    opt.textContent = "复活 " + pieceName({ c: human, t: type });
+    reviveSelect.append(opt);
+  }
+  if ([...reviveSelect.options].some((o) => o.value === oldType))
+    reviveSelect.value = oldType;
   $("skillCards").replaceChildren();
   for (const id of state.loadout[human]) {
     const t = SKILLS.find((x) => x.id === id),
@@ -430,6 +462,7 @@ function render() {
     b.onclick = startReplay;
     $("result").append(h, p, b);
   }
+  if (skill === "revive") board(s);
   clockView();
 }
 function clockView() {
@@ -465,13 +498,22 @@ function tick() {
 function play(a) {
   tick();
   if (ended) return;
-  const cap = state.board[a.to] && a.skill !== "swap";
+  const cap = casualties(state, a).length > 0;
   history.push({ state, clocks: { ...clocks } });
   logs.push((state.turn === "r" ? "红 · " : "黑 · ") + notation(state, a));
   state = advance(state, a);
   selected = skill = hintAction = null;
   sound(cap);
   render();
+  if (a.skill) {
+    const effect = $("skillEffect");
+    effect.textContent = SKILLS.find((t) => t.id === a.skill).name;
+    effect.className = "skill-effect " + a.skill;
+    void effect.offsetWidth;
+    effect.classList.remove("active");
+    requestAnimationFrame(() => effect.classList.add("active"));
+    setTimeout(() => effect.classList.remove("active"), 1300);
+  }
   save();
   lastTick = Date.now();
   if (!ended && state.turn !== human) compute(false);
@@ -526,8 +568,13 @@ function clicked(i) {
   if (busy || ended || replayIndex !== null || state.turn !== human) return;
   hintAction = null;
   let a;
-  if (skill === "revive")
-    a = legal.find((a) => a.skill === skill && a.to === i);
+  if (["revive", "retreat"].includes(skill))
+    a = legal.find(
+      (a) =>
+        a.skill === skill &&
+        a.to === i &&
+        (skill !== "revive" || a.pieceType === $("reviveType").value),
+    );
   else if (selected !== null)
     a = legal.find(
       (a) =>
@@ -536,15 +583,12 @@ function clicked(i) {
           (skill === "swap" && a.to === selected && a.from === i)),
     );
   if (a) {
+    const friendly = casualties(state, a).filter(
+      (j) => state.board[j].c === human,
+    ).length;
     if (
-      a.skill &&
-      !confirm(
-        "释放「" +
-          SKILLS.find((x) => x.id === a.skill).name +
-          "」？消耗 " +
-          SKILLS.find((x) => x.id === a.skill).cost +
-          " 点谋略，并完成本回合行动。",
-      )
+      friendly &&
+      !confirm("火炮轰天会同时清除 " + friendly + " 枚己方棋子。确认轰炸？")
     )
       return;
     play(a);
@@ -731,7 +775,7 @@ window.addEventListener("keydown", (e) => {
 try {
   const d = JSON.parse(localStorage.getItem(SAVE));
   if (
-    d?.version === 1 &&
+    [1, 2].includes(d?.version) &&
     d.state?.board?.length === 90 &&
     Array.isArray(d.history) &&
     Array.isArray(d.logs) &&
@@ -751,6 +795,14 @@ try {
     $("sound").checked = d.sound;
     $("side").value = human;
     $("time").value = String(limit);
+    if (d.version === 1 && state.mode === "skills") {
+      state = initial("skills", loadout);
+      history = [];
+      logs = [];
+      ended = null;
+      clocks = { r: limit, b: limit };
+      toast("娱乐技能已升级，旧技能棋局已重开；经典棋局继续保留。");
+    }
     actions(state);
   }
 } catch {
@@ -759,6 +811,49 @@ try {
   logs = [];
   toast("存档无法读取，已开启新局。");
 }
+$("reviveType").onchange = () => board(state);
+svg.addEventListener("pointerover", (e) => {
+  svg.querySelector("#areaPreview")?.remove();
+  const target = e.target.closest("[data-index]");
+  if (
+    !target ||
+    !["dash", "elephant"].includes(skill) ||
+    selected === null ||
+    busy ||
+    ended ||
+    replayIndex !== null
+  )
+    return;
+  const center = Number(target.dataset.index);
+  if (
+    !legal.some(
+      (a) => a.skill === skill && a.from === selected && a.to === center,
+    )
+  )
+    return;
+  const g = elm("g", { id: "areaPreview", "pointer-events": "none" });
+  for (const j of area(center)) {
+    const [x, y] = pos(j);
+    g.append(
+      elm("rect", {
+        x: x - 25,
+        y: y - 25,
+        width: 50,
+        height: 50,
+        rx: 3,
+        class:
+          "blast-preview" +
+          (state.board[j]?.c === human && skill === "dash"
+            ? " friendly-fire"
+            : ""),
+      }),
+    );
+  }
+  svg.append(g);
+});
+svg.addEventListener("pointerleave", () =>
+  svg.querySelector("#areaPreview")?.remove(),
+);
 setupLoadout();
 render();
 setInterval(tick, 250);

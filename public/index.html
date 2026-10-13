@@ -42,7 +42,7 @@
               ><small>传统规则 · 步步为营</small></button
             ><button data-mode="skills" class="mode">
               <b>技能象棋 <span>奇</span></b
-              ><small>六种奇谋 · 出奇制胜</small>
+              ><small>全盘瞬移 · 范围轰炸</small>
             </button>
           </div>
           <div class="settings">
@@ -105,6 +105,7 @@
               aria-label="象棋棋盘"
             ></svg>
             <div id="result" hidden></div>
+            <div id="skillEffect" class="skill-effect" aria-hidden="true"></div>
           </div>
           <div class="player-bar bottom">
             <div class="player-id">
@@ -145,11 +146,14 @@
           </div>
           <section id="skillPanel" hidden>
             <div class="section-label">
-              我的奇谋 <span id="energyLabel">2 / 5</span>
+              我的奇谋 <span id="energyLabel">5 / 10</span>
             </div>
             <div id="skillCards"></div>
+            <select id="reviveType" aria-label="复活棋子" hidden></select>
+            <p id="skillDetail"></p>
             <p class="muted">
-              每个己方回合恢复 1 点谋略。技能行动占用一步，结束后将帅必须安全。
+              开局 5 点谋略，之后每个己方回合恢复 3 点，上限 10
+              点。轰炸可能伤己，将帅免疫范围伤害。
             </p>
             <div class="section-label">对手技能</div>
             <div id="enemySkills"></div>
@@ -187,8 +191,12 @@
       </p>
       <h3>技能象棋</h3>
       <p>
-        开局携带三种公开技能。初始谋略值 2 点，每个己方回合开始恢复 1 点，上限 5
-        点。使用技能即完成本回合行动，可以用技能解将。移形和援军每局一次，其余技能使用后冷却三个己方回合。技能必须选中后再点棋子和目标；援军直接选择初始兵位。
+        开局携带三种公开技能，双方首回合各有 5 点谋略，后续己方回合恢复 3
+        点，上限 10
+        点。每次技能占用一步，结束后将帅必须安全。技能可以反复使用，冷却 1—2
+        个己方回合。天马可全盘瞬移，炮可远程轰炸，偷天换日直接点击敌子；起死回生先选被吃的棋子再选择己方半场空位。轰炸的
+        3×3
+        范围会伤及双方棋子，将帅免疫；鼠标指向目标可预览爆炸区域，误伤己方时需确认。
       </p>
       <div id="skillRules"></div>
       <h3>和棋与长将</h3>

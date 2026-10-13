@@ -3,61 +3,65 @@ export const NAMES = {
   b: ["將", "士", "象", "馬", "車", "砲", "卒"],
 };
 export const TYPES = ["k", "a", "e", "h", "r", "c", "p"];
+export const SKILL_RULES = { start: 5, cap: 10, regen: 3 };
 export const SKILLS = [
   {
     id: "horse",
-    name: "跃马",
+    name: "天马行空",
     cost: 2,
-    cooldown: 3,
-    mark: "馬",
-    desc: "马忽略蹩马腿，仍走日字，可吃子。",
+    cooldown: 1,
+    mark: "瞬",
+    desc: "马瞬移到全盘任意空位，无视马腿与距离，不能直接吃子。",
   },
   {
     id: "elephant",
-    name: "飞象",
-    cost: 2,
-    cooldown: 3,
-    mark: "象",
-    desc: "相／象忽略塞象眼，不能过河。",
+    name: "横扫千军",
+    cost: 3,
+    cooldown: 1,
+    mark: "扫",
+    desc: "车按正常路线移动，并清除落点周围八格的敌子，将帅免疫。",
   },
   {
     id: "dash",
-    name: "疾行",
-    cost: 2,
-    cooldown: 3,
-    mark: "兵",
-    desc: "兵卒向前两格，路径须空，不能吃子。",
+    name: "火炮轰天",
+    cost: 4,
+    cooldown: 2,
+    mark: "轰",
+    desc: "炮不移动，全盘锁定任意敌子，轰炸目标及周围八格！双方棋子都会受伤，将帅免疫。",
   },
   {
     id: "retreat",
-    name: "回马",
-    cost: 2,
-    cooldown: 3,
-    mark: "↶",
-    desc: "过河兵卒后退一格，不能吃子。",
+    name: "偷天换日",
+    cost: 6,
+    cooldown: 2,
+    mark: "变",
+    desc: "直接策反一枚敌方车、马、炮或兵，原地变成你的棋子！",
   },
   {
     id: "swap",
-    name: "移形",
+    name: "乾坤挪移",
     cost: 4,
-    once: true,
-    mark: "⇄",
-    desc: "交换两枚己方非将帅棋子，须满足区域限制。",
+    cooldown: 1,
+    mark: "换",
+    desc: "一枚己方非将帅与全盘任意非将帅交换位置，可交换敌子！士象仍须落在合法区域。",
   },
   {
     id: "revive",
-    name: "援军",
+    name: "起死回生",
     cost: 5,
-    once: true,
-    mark: "援",
-    desc: "复活一枚被吃的己方兵卒至空着的初始兵位。",
+    cooldown: 2,
+    mark: "生",
+    desc: "复活己方被吃的任意非将帅棋子，放到己方半场的空位；士象仍须落在合法区域。",
   },
 ];
 const other = (c) => (c === "r" ? "b" : "r"),
   xy = (i) => [i % 9, Math.floor(i / 9)],
   idx = (x, y) => y * 9 + x,
   inside = (x, y) => x >= 0 && x < 9 && y >= 0 && y < 10;
-export function initial(mode = "classic", loadout = ["horse", "dash", "swap"]) {
+export function initial(
+  mode = "classic",
+  loadout = ["horse", "dash", "retreat"],
+) {
   const b = Array(90).fill(null),
     back = ["r", "h", "e", "a", "k", "a", "e", "h", "r"];
   for (let x = 0; x < 9; x++) {
@@ -75,11 +79,12 @@ export function initial(mode = "classic", loadout = ["horse", "dash", "swap"]) {
     board: b,
     turn: "r",
     mode,
-    energy: { r: 2, b: 2 },
+    energy: { r: SKILL_RULES.start, b: SKILL_RULES.start },
     cool: { r: {}, b: {} },
     used: { r: {}, b: {} },
     loadout: { r: [...loadout], b: [...loadout] },
     lost: { r: 0, b: 0 },
+    grave: { r: [], b: [] },
     ply: 0,
     quiet: 0,
     records: [],
@@ -236,44 +241,79 @@ function allowed(s, id) {
     !(a.once && s.used[c][id])
   );
 }
+export function area(center) {
+  const [x, y] = xy(center),
+    out = [];
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++)
+      if (inside(x + dx, y + dy)) out.push(idx(x + dx, y + dy));
+  return out;
+}
+export function casualties(s, a) {
+  if (a.skill === "dash")
+    return area(a.to).filter((j) => s.board[j] && s.board[j].t !== "k");
+  if (a.skill === "elephant")
+    return area(a.to).filter(
+      (j) => s.board[j] && s.board[j].c !== s.turn && s.board[j].t !== "k",
+    );
+  if (!a.skill || a.skill === "horse") return s.board[a.to] ? [a.to] : [];
+  return [];
+}
 export function actions(s) {
   const moves = [],
     c = s.turn,
     b = s.board;
+  const available = Object.fromEntries(
+    SKILLS.map((t) => [t.id, allowed(s, t.id)]),
+  );
   for (let i = 0; i < 90; i++) {
     const p = b[i];
     if (!p || p.c !== c) continue;
-    for (const j of raw(b, i))
-      if (b[j]?.t !== "k") moves.push({ from: i, to: j });
-    for (const id of ["horse", "elephant", "dash", "retreat"])
-      if (
-        allowed(s, id) &&
-        { horse: "h", elephant: "e", dash: "p", retreat: "p" }[id] === p.t
-      )
-        for (const j of raw(b, i, id))
-          if (
-            b[j]?.t !== "k" &&
-            (id === "dash" || id === "retreat" || !raw(b, i).includes(j))
-          )
-            moves.push({ from: i, to: j, skill: id });
+    const normal = raw(b, i);
+    for (const j of normal) if (b[j]?.t !== "k") moves.push({ from: i, to: j });
+    if (available.horse && p.t === "h")
+      for (let j = 0; j < 90; j++)
+        if (!b[j] && !normal.includes(j))
+          moves.push({ from: i, to: j, skill: "horse" });
+    if (available.elephant && p.t === "r")
+      for (const j of normal)
+        if (
+          b[j]?.t !== "k" &&
+          casualties(s, { from: i, to: j, skill: "elephant" }).length
+        )
+          moves.push({ from: i, to: j, skill: "elephant" });
+    if (available.dash && p.t === "c")
+      for (let j = 0; j < 90; j++)
+        if (b[j] && b[j].c !== c && b[j].t !== "k")
+          moves.push({ from: i, to: j, skill: "dash" });
+    if (available.swap && p.t !== "k")
+      for (let j = 0; j < 90; j++)
+        if (
+          j !== i &&
+          b[j] &&
+          b[j].t !== "k" &&
+          (b[j].c !== c || j > i) &&
+          !(b[j].c === c && b[j].t === p.t) &&
+          region(p, j) &&
+          region(b[j], i)
+        )
+          moves.push({ from: i, to: j, skill: "swap" });
   }
-  if (allowed(s, "swap"))
-    for (let i = 0; i < 90; i++)
-      if (b[i]?.c === c && b[i].t !== "k")
-        for (let j = i + 1; j < 90; j++)
-          if (
-            b[j]?.c === c &&
-            b[j].t !== "k" &&
-            b[j].t !== b[i].t &&
-            region(b[i], j) &&
-            region(b[j], i)
-          )
-            moves.push({ from: i, to: j, skill: "swap" });
-  if (allowed(s, "revive") && s.lost[c] > 0)
-    for (let x = 0; x < 9; x += 2) {
-      const j = idx(x, c === "r" ? 6 : 3);
-      if (!b[j]) moves.push({ from: -1, to: j, skill: "revive" });
-    }
+  if (available.retreat)
+    for (let j = 0; j < 90; j++)
+      if (b[j] && b[j].c !== c && ["r", "h", "c", "p"].includes(b[j].t))
+        moves.push({ from: -1, to: j, skill: "retreat" });
+  if (available.revive)
+    for (const t of [...new Set(s.grave?.[c] || [])].sort(
+      (a, b) =>
+        ["r", "c", "h", "e", "a", "p"].indexOf(a) -
+        ["r", "c", "h", "e", "a", "p"].indexOf(b),
+    ))
+      for (let j = 0; j < 90; j++) {
+        const [, y] = xy(j);
+        if (!b[j] && (c === "r" ? y >= 5 : y <= 4) && region({ c, t }, j))
+          moves.push({ from: -1, to: j, skill: "revive", pieceType: t });
+      }
   return moves.filter((a) => !inCheck(advance(s, a, false), c));
 }
 export function key(s) {
@@ -281,7 +321,16 @@ export function key(s) {
     s.board.map((p) => (p ? p.c + p.t : "_")).join("") +
     s.turn +
     (s.mode === "skills"
-      ? JSON.stringify([s.energy, s.cool, s.used, s.lost])
+      ? JSON.stringify([
+          s.energy,
+          s.cool,
+          s.used,
+          s.lost,
+          {
+            r: [...(s.grave?.r || [])].sort(),
+            b: [...(s.grave?.b || [])].sort(),
+          },
+        ])
       : "")
   );
 }
@@ -293,21 +342,31 @@ export function advance(s, a, record = true) {
     cool: { r: { ...s.cool.r }, b: { ...s.cool.b } },
     used: { r: { ...s.used.r }, b: { ...s.used.b } },
     lost: { ...s.lost },
+    grave: { r: [...(s.grave?.r || [])], b: [...(s.grave?.b || [])] },
     last: a,
   };
   const c = s.turn,
     p = s.board[a.from],
     q = s.board[a.to];
+  const victims = casualties(s, a);
+  for (const j of victims) {
+    const v = s.board[j];
+    n.grave[v.c].push(v.t);
+    if (v.t === "p") n.lost[v.c]++;
+    n.board[j] = null;
+  }
   if (a.skill === "swap") {
     n.board[a.from] = q;
     n.board[a.to] = p;
+  } else if (a.skill === "retreat") {
+    n.board[a.to] = { ...q, c };
   } else if (a.skill === "revive") {
-    n.board[a.to] = { c, t: "p" };
-    n.lost[c]--;
-  } else {
+    n.board[a.to] = { c, t: a.pieceType };
+    n.grave[c].splice(n.grave[c].indexOf(a.pieceType), 1);
+    if (a.pieceType === "p") n.lost[c]--;
+  } else if (a.skill !== "dash") {
     n.board[a.from] = null;
     n.board[a.to] = p;
-    if (q?.t === "p") n.lost[q.c]++;
   }
   if (a.skill) {
     const t = SKILLS.find((x) => x.id === a.skill);
@@ -318,16 +377,22 @@ export function advance(s, a, record = true) {
   n.turn = other(c);
   n.ply = s.ply + 1;
   n.quiet =
-    (q && a.skill !== "swap") || p?.t === "p" || a.skill === "revive"
+    victims.length ||
+    p?.t === "p" ||
+    a.skill === "revive" ||
+    a.skill === "retreat"
       ? 0
       : s.quiet + 1;
   for (const id of Object.keys(n.cool[n.turn])) {
     n.cool[n.turn][id] = Math.max(0, n.cool[n.turn][id] - 1);
     if (!n.cool[n.turn][id]) delete n.cool[n.turn][id];
   }
-  // Both players start their first turn with two points, then regenerate on later turns.
+  // Both players start equally; regeneration begins on their later turns.
   if (n.mode === "skills" && n.ply > 1)
-    n.energy[n.turn] = Math.min(5, n.energy[n.turn] + 1);
+    n.energy[n.turn] = Math.min(
+      SKILL_RULES.cap,
+      n.energy[n.turn] + SKILL_RULES.regen,
+    );
   if (record)
     n.records = [
       ...s.records,
@@ -359,20 +424,32 @@ export function outcome(s, legal) {
   return null;
 }
 export function notation(s, a) {
-  const coord = (i) => {
-    const [x, y] = xy(i);
-    return "ABCDEFGHI"[x] + (10 - y);
-  };
-  const label = a.skill
-    ? SKILLS.find((x) => x.id === a.skill).name + " · "
-    : "";
+  const coord = (i) => "ABCDEFGHI"[i % 9] + (10 - Math.floor(i / 9)),
+    label = a.skill ? SKILLS.find((t) => t.id === a.skill).name + " · " : "";
+  if (a.skill === "retreat")
+    return label + "策反" + pieceName(s.board[a.to]) + " " + coord(a.to);
+  if (a.skill === "revive")
+    return (
+      label +
+      "复活" +
+      pieceName({ c: s.turn, t: a.pieceType }) +
+      " → " +
+      coord(a.to)
+    );
+  const hits = casualties(s, a),
+    friendly = hits.filter((j) => s.board[j].c === s.turn).length;
   return (
     label +
-    (a.from < 0 ? "兵援军" : pieceName(s.board[a.from]) + " " + coord(a.from)) +
-    " → " +
+    pieceName(s.board[a.from]) +
+    " " +
+    coord(a.from) +
+    (a.skill === "dash" ? " 轰击 " : " → ") +
     coord(a.to) +
-    (s.board[a.to] && a.skill !== "swap"
-      ? " 吃" + pieceName(s.board[a.to])
+    (hits.length
+      ? " · 清除 " +
+        hits.length +
+        " 子" +
+        (friendly ? "（含己方 " + friendly + "）" : "")
       : "")
   );
 }
