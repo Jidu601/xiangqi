@@ -1,0 +1,1 @@
+{"name":"chuhe-qimou","version":"1.0.0","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test tests/*.test.mjs","check":"node --check public/engine.js && node --check public/ai.js && node --check public/app.js && node --check server.mjs"}}

@@ -1,0 +1,10 @@
+import {createRequire} from 'node:module';
+import {readFileSync} from 'node:fs';
+const require=createRequire('D:/xm/gpt/mcp_ssh_manager/package.json');
+const {Client}=require('ssh2');
+const text=readFileSync('D:/xm/gpt/mcp_ssh_manager/ssh-config.toml','utf8');
+const section=text.split('[ssh_servers.cloud]')[1].split('\n[')[0];
+const val=k=>section.match(new RegExp('^'+k+'\\s*=\\s*"([^"]*)"','m'))?.[1];
+const conn=new Client();
+conn.on('error',e=>{console.error('SSH: '+e.message);process.exitCode=1;}).on('ready',()=>{const command=process.argv[2];conn.exec(command,(err,stream)=>{if(err){console.error(err.message);conn.end();process.exitCode=1;return;}stream.on('data',d=>process.stdout.write(d));stream.stderr.on('data',d=>process.stderr.write(d));stream.on('close',code=>{process.exitCode=code;conn.end();});});});
+conn.connect({host:val('host'),port:22,username:val('username')||val('user'),password:val('password'),readyTimeout:20000});
