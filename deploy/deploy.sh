@@ -29,7 +29,10 @@ import sys
 source=open(sys.argv[1]).read()
 marker='        # chuhe-qimou route\n'
 if '/games/xiangqi/' in source:
-    raise SystemExit('Xiangqi route already exists; inspect it before changing configuration')
+    if marker not in source or source.count('handle_path /games/xiangqi/*') != 1 or 'reverse_proxy xiangqi:3188' not in source:
+        raise SystemExit('Unknown Xiangqi route already exists; inspect before changing configuration')
+    open(sys.argv[2],'w').write(source)
+    raise SystemExit(0)
 anchor='        handle {\n'
 if source.count(anchor)!=1:
     raise SystemExit('Unknown gateway structure; refusing automatic patch')
