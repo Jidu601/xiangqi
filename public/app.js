@@ -11,10 +11,13 @@ import {
   pieceName,
   notation,
 } from "./engine.js";
+import { InkEffects } from "./effects.js";
 const $ = (id) => document.getElementById(id),
   svg = $("board"),
   NS = "http://www.w3.org/2000/svg",
   SAVE = "chuhe-qimou-v1";
+const inkEffects = new InkEffects($("screenFx"), $("screenSkillTitle"));
+let effectsBusy = false;
 let state = initial(),
   history = [],
   logs = [],
@@ -77,11 +80,14 @@ function save() {
         difficulty: $("difficulty").value,
         assist: $("assist").checked,
         sound: $("sound").checked,
+        screenFx: $("effects").checked,
       }),
     );
   } catch {}
 }
 function cancelWorker() {
+  inkEffects.cancel();
+  effectsBusy = false;
   job++;
   worker?.terminate();
   worker = null;
@@ -107,6 +113,31 @@ function board(s) {
   const defs = elm("defs");
   defs.innerHTML =
     '<radialGradient id="pieceFill" cx="35%" cy="25%"><stop offset="0" stop-color="#faf5e7"/><stop offset="1" stop-color="#e8dec4"/></radialGradient><filter id="shadow" x="-30%" y="-30%" width="170%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="1.7" flood-color="#4b4638" flood-opacity=".22"/></filter>';
+  const edge = elm("filter", {
+    id: "inkEdge",
+    filterUnits: "userSpaceOnUse",
+    x: 0,
+    y: 0,
+    width: 540,
+    height: 600,
+  });
+  edge.append(
+    elm("feTurbulence", {
+      type: "fractalNoise",
+      baseFrequency: ".12 .18",
+      numOctaves: 2,
+      seed: 7,
+      result: "grain",
+    }),
+    elm("feDisplacementMap", {
+      in: "SourceGraphic",
+      in2: "grain",
+      scale: 1.6,
+      xChannelSelector: "R",
+      yChannelSelector: "G",
+    }),
+  );
+  defs.append(edge);
   svg.append(defs);
   for (let y = 0; y < 10; y++)
     svg.append(
@@ -243,7 +274,11 @@ function board(s) {
       g.append(elm("circle", { cx: x, cy: y, r: 24 }));
       g.append(elm("circle", { cx: x, cy: y, r: 20, class: "inner" }));
       g.append(
-        elm("text", { x, y: y + 10, "text-anchor": "middle" }, pieceName(p)),
+        elm(
+          "text",
+          { x, y, "text-anchor": "middle", "dominant-baseline": "central" },
+          pieceName(p),
+        ),
       );
     }
     svg.append(g);
@@ -301,9 +336,9 @@ function render() {
   board(s);
   const avatars = document.querySelectorAll(".player-id .avatar");
   avatars[0].className = "avatar " + (human === "r" ? "black" : "red");
-  avatars[0].textContent = human === "r" ? "將" : "帥";
+  avatars[0].textContent = human === "r" ? "将" : "帅";
   avatars[1].className = "avatar " + (human === "r" ? "red" : "black");
-  avatars[1].textContent = human === "r" ? "帥" : "將";
+  avatars[1].textContent = human === "r" ? "帅" : "将";
   document
     .querySelectorAll("[data-mode]")
     .forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
@@ -356,23 +391,25 @@ function render() {
             : ended.winner === human
               ? "你获胜了"
               : "墨客获胜")
-        : busy
-          ? "墨客正在思考…"
-          : skill
-            ? SKILLS.find((x) => x.id === skill).name +
-              "：" +
-              (skill === "revive"
-                ? "选择复活棋子，再点己方半场空位。"
-                : skill === "retreat"
-                  ? "点击敌方车、马、炮或兵，直接策反。"
-                  : "选择己方棋子，再选目标。")
-            : inCheck(state)
-              ? "将军！选择能解将的行动。"
-              : "轮到你了，请落子。";
+        : effectsBusy
+          ? "墨势已起，奇谋施展中…"
+          : busy
+            ? "墨客正在思考…"
+            : skill
+              ? SKILLS.find((x) => x.id === skill).name +
+                "：" +
+                (skill === "revive"
+                  ? "选择复活棋子，再点己方半场空位。"
+                  : skill === "retreat"
+                    ? "点击敌方车、马、炮或兵，直接策反。"
+                    : "选择己方棋子，再选目标。")
+              : inCheck(state)
+                ? "将军！选择能解将的行动。"
+                : "轮到你了，请落子。";
   $("statusDot").style.background = inCheck(state) ? "#a34434" : "#688675";
   const reviveSelect = $("reviveType"),
     oldType = reviveSelect.value;
-  reviveSelect.hidden = skill !== "revive";
+  reviveSelect.hidden = true;
   reviveSelect.replaceChildren();
   for (const type of [...new Set(state.grave?.[human] || [])].sort(
     (a, b) =>
@@ -386,6 +423,55 @@ function render() {
   }
   if ([...reviveSelect.options].some((o) => o.value === oldType))
     reviveSelect.value = oldType;
+  $("revivePocket").hidden =
+    state.mode !== "skills" || !state.loadout[human].includes("revive");
+  $("revivePieces").replaceChildren();
+  for (const opt of reviveSelect.options) {
+    const count = (state.grave?.[human] || []).filter(
+        (t) => t === opt.value,
+      ).length,
+      glyph = pieceName({ c: human, t: opt.value }),
+      button = document.createElement("button");
+    button.type = "button";
+    button.className =
+      "revive-choice " +
+      (human === "r" ? "red" : "black") +
+      (skill === "revive" && reviveSelect.value === opt.value
+        ? " selected"
+        : "");
+    button.setAttribute("aria-label", "复活" + glyph + "，共 " + count + " 枚");
+    button.setAttribute(
+      "aria-pressed",
+      String(skill === "revive" && reviveSelect.value === opt.value),
+    );
+    const token = document.createElement("b"),
+      number = document.createElement("small");
+    token.textContent = glyph;
+    number.textContent = "×" + count;
+    button.append(token, number);
+    button.disabled =
+      busy ||
+      effectsBusy ||
+      state.turn !== human ||
+      !!ended ||
+      replayIndex !== null ||
+      skillState("revive") !== "可使用";
+    button.onclick = () => {
+      reviveSelect.value = opt.value;
+      skill = "revive";
+      selected = null;
+      hintAction = null;
+      render();
+    };
+    $("revivePieces").append(button);
+  }
+  $("reviveSummary").textContent = reviveSelect.options.length
+    ? skill === "revive"
+      ? "本次复活：" +
+        pieceName({ c: human, t: reviveSelect.value }) +
+        " · 请选择己方半场空位"
+      : "点击棋子选择复活，数量显示在棋子旁。"
+    : "暂无被吃的己方棋子。";
   $("skillCards").replaceChildren();
   for (const id of state.loadout[human]) {
     const t = SKILLS.find((x) => x.id === id),
@@ -405,6 +491,7 @@ function render() {
       "</span>";
     b.disabled =
       busy ||
+      effectsBusy ||
       state.turn !== human ||
       !!ended ||
       replayIndex !== null ||
@@ -437,7 +524,11 @@ function render() {
   $("history").scrollTop = $("history").scrollHeight;
   $("undo").disabled = !history.length || replayIndex !== null;
   $("hint").disabled =
-    busy || !!ended || state.turn !== human || replayIndex !== null;
+    busy ||
+    effectsBusy ||
+    !!ended ||
+    state.turn !== human ||
+    replayIndex !== null;
   $("resign").disabled = !!ended || replayIndex !== null;
   $("replay").disabled = !history.length;
   $("replayBar").hidden = replayIndex === null;
@@ -483,7 +574,7 @@ function tick() {
   const now = Date.now(),
     elapsed = (now - lastTick) / 1000;
   lastTick = now;
-  if (limit && !ended && replayIndex === null) {
+  if (limit && !ended && replayIndex === null && !effectsBusy) {
     clocks[state.turn] -= elapsed;
     if (clocks[state.turn] <= 0) {
       clocks[state.turn] = 0;
@@ -495,27 +586,45 @@ function tick() {
     clockView();
   }
 }
-function play(a) {
+async function play(a) {
   tick();
   if (ended) return;
+  const actor = state.turn,
+    position = (i) => {
+      const g = svg.querySelector('[data-index="' + i + '"]');
+      if (!g) return null;
+      const b = g.getBoundingClientRect();
+      return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+    },
+    source = position(a.from),
+    target = position(a.to);
   const cap = casualties(state, a).length > 0;
   history.push({ state, clocks: { ...clocks } });
   logs.push((state.turn === "r" ? "红 · " : "黑 · ") + notation(state, a));
   state = advance(state, a);
   selected = skill = hintAction = null;
+  effectsBusy = !!(a.skill && $("effects").checked);
   sound(cap);
   render();
-  if (a.skill) {
-    const effect = $("skillEffect");
-    effect.textContent = SKILLS.find((t) => t.id === a.skill).name;
-    effect.className = "skill-effect " + a.skill;
-    void effect.offsetWidth;
-    effect.classList.remove("active");
-    requestAnimationFrame(() => effect.classList.add("active"));
-    setTimeout(() => effect.classList.remove("active"), 1300);
-  }
   save();
   lastTick = Date.now();
+  const after = state,
+    token = job;
+  if (effectsBusy)
+    await inkEffects.play(a.skill, {
+      source,
+      target,
+      side: actor,
+      sound: $("sound").checked,
+      revivedPiece:
+        a.skill === "revive"
+          ? pieceName({ c: actor, t: a.pieceType })
+          : undefined,
+    });
+  if (state !== after || token !== job) return;
+  effectsBusy = false;
+  lastTick = Date.now();
+  render();
   if (!ended && state.turn !== human) compute(false);
 }
 function compute(isHint) {
@@ -565,7 +674,14 @@ function compute(isHint) {
   worker.postMessage({ id, state, difficulty: $("difficulty").value });
 }
 function clicked(i) {
-  if (busy || ended || replayIndex !== null || state.turn !== human) return;
+  if (
+    busy ||
+    effectsBusy ||
+    ended ||
+    replayIndex !== null ||
+    state.turn !== human
+  )
+    return;
   hintAction = null;
   let a;
   if (["revive", "retreat"].includes(skill))
@@ -696,6 +812,10 @@ $("assist").onchange = () => {
   save();
 };
 $("sound").onchange = save;
+$("effects").onchange = () => {
+  if (!$("effects").checked) inkEffects.cancel();
+  save();
+};
 $("difficulty").onchange = () => {
   render();
   save();
@@ -755,9 +875,29 @@ $("export").onclick = () => {
 };
 $("rulesBtn").onclick = () => $("rules").showModal();
 $("closeRules").onclick = () => $("rules").close();
-$("skillRules").innerHTML = SKILLS.map(
-  (t) => "<p><b>" + t.name + " · " + t.cost + " 点</b> — " + t.desc + "</p>",
-).join("");
+$("skillRules").replaceChildren();
+for (const t of SKILLS) {
+  const p = document.createElement("p"),
+    button = document.createElement("button");
+  p.textContent = t.name + " · " + t.cost + " 点 — " + t.desc + " ";
+  button.type = "button";
+  button.className = "quiet fx-preview";
+  button.textContent = "预览特效";
+  button.onclick = () => {
+    $("rules").close();
+    inkEffects.play(t.id, {
+      preview: true,
+      sound: $("sound").checked,
+      revivedPiece:
+        t.id === "revive"
+          ? pieceName({ c: human, t: $("reviveType").value || "r" })
+          : undefined,
+      side: human,
+    });
+  };
+  p.append(button);
+  $("skillRules").append(p);
+}
 window.addEventListener("beforeunload", () => {
   tick();
   save();
@@ -793,6 +933,7 @@ try {
     $("difficulty").value = d.difficulty;
     $("assist").checked = d.assist;
     $("sound").checked = d.sound;
+    $("effects").checked = d.screenFx ?? true;
     $("side").value = human;
     $("time").value = String(limit);
     if (d.version === 1 && state.mode === "skills") {
@@ -820,6 +961,7 @@ svg.addEventListener("pointerover", (e) => {
     !["dash", "elephant"].includes(skill) ||
     selected === null ||
     busy ||
+    effectsBusy ||
     ended ||
     replayIndex !== null
   )

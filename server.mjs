@@ -9,6 +9,9 @@ const root = path.resolve("public"),
     ".png": "image/png",
     ".jpg": "image/jpeg",
     ".svg": "image/svg+xml",
+    ".woff2": "font/woff2",
+    ".woff": "font/woff",
+    ".ttf": "font/ttf",
   };
 http
   .createServer(async (req, res) => {

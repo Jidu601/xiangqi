@@ -8,8 +8,15 @@
     <link rel="icon" href="./icon.svg" />
     <link rel="stylesheet" href="./style.css" />
     <link rel="stylesheet" href="./ink.css" />
+    <link rel="stylesheet" href="./ink-v2.css" />
   </head>
   <body>
+    <canvas id="screenFx" hidden aria-hidden="true"></canvas>
+    <div
+      id="screenSkillTitle"
+      class="screen-skill-title"
+      aria-live="polite"
+    ></div>
     <header>
       <a class="brand" href="./"
         ><span class="seal">楚</span
@@ -67,6 +74,9 @@
               ><input id="assist" type="checkbox" checked /> 显示可走位置</label
             ><label class="toggle"
               ><input id="sound" type="checkbox" checked /> 落子音效</label
+            ><label class="toggle"
+              ><input id="effects" type="checkbox" checked />
+              全屏水墨特效</label
             ><button id="newGame" class="primary">
               开启新局 <span>→</span>
             </button>
@@ -87,7 +97,7 @@
         <section class="board-panel">
           <div class="player-bar">
             <div class="player-id">
-              <span class="avatar black">將</span>
+              <span class="avatar black">将</span>
               <div>
                 <b id="opponentName">墨客 · 进阶</b
                 ><small id="opponentInfo">人机对手 / 黑方</small>
@@ -105,11 +115,10 @@
               aria-label="象棋棋盘"
             ></svg>
             <div id="result" hidden></div>
-            <div id="skillEffect" class="skill-effect" aria-hidden="true"></div>
           </div>
           <div class="player-bar bottom">
             <div class="player-id">
-              <span class="avatar red">帥</span>
+              <span class="avatar red">帅</span>
               <div>
                 <b>执棋人 · 你</b
                 ><small id="yourInfo">红方先行 / 第 1 回合</small>
@@ -150,6 +159,11 @@
             </div>
             <div id="skillCards"></div>
             <select id="reviveType" aria-label="复活棋子" hidden></select>
+            <section id="revivePocket" hidden aria-label="可复活棋子">
+              <div class="section-label">可复活棋子</div>
+              <div id="revivePieces"></div>
+              <p id="reviveSummary"></p>
+            </section>
             <p id="skillDetail"></p>
             <p class="muted">
               开局 5 点谋略，之后每个己方回合恢复 3 点，上限 10

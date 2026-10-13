@@ -1,0 +1,693 @@
+@font-face {
+  font-family: InkBrush;
+  src: url("./fonts/brush.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 400;
+}
+@font-face {
+  font-family: ChessPiece;
+  src: url("./fonts/pieces.woff") format("woff");
+  font-display: swap;
+  font-weight: 600;
+}
+body {
+  overflow-x: hidden;
+  --paper: #efe9d8;
+  --ink: #252924;
+  --green: #292f29;
+  --line: #8b887651;
+  --gold: #76654b;
+  --red: #992e26;
+  background-color: #eae2cd;
+  background-image: url("./art/shanshui.png");
+  background-size: cover;
+  background-position: center center;
+  background-attachment: fixed;
+  color: var(--ink);
+}
+body:before {
+  opacity: 0.095;
+}
+header {
+  border-bottom: 1px solid #343b2c52;
+  background: #f2ecdc78;
+}
+.brand {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 32px;
+  letter-spacing: 4px;
+}
+.brand small {
+  font-size: 8px;
+  letter-spacing: 5px;
+}
+.seal {
+  font-family: InkBrush, "SimSun", serif;
+  background: #922c25;
+  color: #f8edd7;
+  border-radius: 1px;
+  outline-color: #922c25;
+  clip-path: polygon(0 2%, 97% 0, 100% 96%, 3% 100%);
+}
+.intro {
+  padding-top: 28px;
+  padding-bottom: 26px;
+}
+.intro h1 {
+  font:
+    54px/1.3 InkBrush,
+    "SimSun",
+    serif;
+  font-weight: 400;
+  letter-spacing: 6px;
+  text-shadow: 0 1px 0 #e8e0c7;
+}
+.intro h1 em {
+  color: #922c25;
+}
+.intro p {
+  color: #635e4e;
+}
+.intro-note {
+  font-family: InkBrush, "SimSun", serif;
+  writing-mode: horizontal-tb;
+  display: block;
+  margin-left: auto;
+  margin-right: 14px;
+  height: auto;
+  letter-spacing: 3px;
+  font-size: 24px;
+  color: #454a3b;
+}
+.intro-note span {
+  display: block;
+}
+.intro-note small {
+  font-size: 10px;
+  letter-spacing: 3px;
+  display: block;
+  margin-top: 8px;
+}
+.intro:after {
+  font:
+    40px InkBrush,
+    "SimSun",
+    serif;
+  color: #912f26;
+  border-color: #912f26;
+  width: 51px;
+  height: 59px;
+  margin-right: 45px;
+  opacity: 0.8;
+}
+.section-label {
+  color: #625c4b;
+}
+.left-panel,
+.right-panel {
+  background: #f4efdfce;
+  padding: 17px 15px;
+  border: 1px solid #696d5155;
+  box-shadow: 0 6px 18px #29332208;
+  clip-path: polygon(0 0.2%, 99% 0, 100% 99.6%, 0.5% 100%);
+}
+.game-layout {
+  gap: 24px;
+}
+.mode {
+  background: #f2ebd9b8;
+  border-color: #6a705859;
+  border-radius: 0;
+}
+.mode b {
+  font:
+    24px InkBrush,
+    "SimSun",
+    serif;
+  letter-spacing: 2px;
+}
+.mode b span {
+  font-family: InkBrush;
+  font-size: 24px;
+  color: #922c25;
+}
+.mode small {
+  color: #6b6556;
+}
+.mode.active {
+  background: #2b3127ed;
+  border-color: #303627;
+  box-shadow: inset 3px 0 #9a3529;
+  color: #f2e7ce;
+}
+.mode.active small {
+  color: #d2c6ac;
+}
+.mode.active b span {
+  color: #d18462;
+}
+select {
+  background: #eee7d5d9;
+  border-color: #7b7b645a;
+  border-radius: 0;
+}
+.primary {
+  background: #2a3027;
+  color: #f3ead5;
+  border-radius: 0;
+  font:
+    23px InkBrush,
+    "SimSun",
+    serif;
+  letter-spacing: 2px;
+  clip-path: polygon(0 8%, 97% 0, 100% 89%, 2% 100%);
+  padding: 12px 15px;
+}
+.quote {
+  color: #444b3b;
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 25px;
+  line-height: 1.7;
+  letter-spacing: 3px;
+}
+.quote span {
+  color: #6b6759;
+  font-family: "SimSun", serif;
+  font-size: 11px;
+}
+.board-panel {
+  background: #f0e9d8f2;
+  border: 1px solid #545d43aa;
+  border-radius: 0;
+  box-shadow: 0 12px 35px #26302224;
+}
+.board-wrap {
+  background: radial-gradient(ellipse at 35% 40%, #f6f0dfe6, #dfdbc8e8);
+  border: 1px solid #4d59479c;
+  border-radius: 0;
+  box-shadow: inset 0 0 35px #323c2826;
+}
+.gridline {
+  stroke: #384635;
+  stroke-width: 1.45;
+  opacity: 0.83;
+  filter: url(#inkEdge);
+}
+.river {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 30px;
+  fill: #43503d;
+  letter-spacing: 9px;
+}
+.piece circle {
+  stroke: #536246;
+  stroke-width: 1.8;
+  filter: none;
+}
+.piece .inner {
+  stroke: #5e6b4d;
+  stroke-width: 1.1;
+  filter: url(#inkEdge);
+}
+.piece text {
+  font-family: InkBrush, "SimSun", serif;
+  font-weight: 400;
+  font-size: 36px;
+}
+.piece.red text {
+  fill: #992f25;
+}
+.piece.black text {
+  fill: #202e23;
+}
+.piece.red circle {
+  stroke: #a1533f;
+}
+.piece.red .inner {
+  stroke: #a35a43;
+}
+.avatar {
+  font-family: InkBrush, "SimSun", serif;
+  background: #e6dfca;
+  border-color: #5c674650;
+  font-size: 28px;
+}
+.player-id b {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 18px;
+}
+.board-status {
+  background: #d8dcc880;
+  color: #46513c;
+}
+.actions button {
+  color: #51563e;
+}
+.turn-card {
+  background: #e0e1cca3;
+  border-radius: 0;
+  border-left: 3px solid #323a2e;
+}
+.turn-card span {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 24px;
+}
+.turn-card b {
+  color: #66724c26;
+}
+.turn-card small {
+  color: #6b6757;
+}
+.skill-card {
+  border-radius: 0;
+  background: #f2ebdba8;
+  border-color: #77795f55;
+  padding: 12px 9px;
+}
+.skill-card .symbol {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 29px;
+  border-color: #616c4a77;
+  color: #434f36;
+}
+.skill-card b {
+  font:
+    20px InkBrush,
+    "SimSun",
+    serif;
+  font-weight: 400;
+}
+.skill-card small {
+  color: #6e6958;
+}
+.skill-card .cost {
+  color: #932f26;
+}
+.skill-card.active {
+  background: #ded4b4;
+  border: 1px solid #922c25;
+  box-shadow: inset 3px 0 #922c25;
+}
+.side-note span {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 22px;
+}
+.muted,
+.side-note p {
+  color: #69624f;
+}
+.empty-record {
+  color: #69624f;
+}
+#history li {
+  border-bottom-color: #6c735c30;
+}
+#history li span {
+  color: #8b624c;
+}
+#loadout label {
+  border-color: #696f5355;
+  background: #eee6d29c;
+  border-radius: 0;
+  color: #484e39;
+}
+#skillDetail {
+  color: #705438;
+}
+#reviveType {
+  background: #e3dcc7;
+}
+footer {
+  background: #ede7d48c;
+  color: #5c5b49;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+footer span:first-child {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 21px;
+}
+dialog {
+  background: #eee7d5;
+  border: 1px solid #5d654c;
+  border-radius: 0;
+}
+dialog h2 {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 36px;
+}
+dialog h3 {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 24px;
+}
+.fx-preview {
+  display: inline-block;
+  color: #992f25;
+  border-bottom: 1px solid #992f2555;
+  font-size: 11px;
+  margin: 5px 0;
+  padding: 2px 8px;
+}
+#result h2 {
+  font-family: InkBrush, "SimSun", serif;
+  font-size: 55px;
+}
+#screenFx {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 90;
+  pointer-events: none;
+}
+.screen-skill-title {
+  position: fixed;
+  inset: 0;
+  z-index: 91;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  --effect-color: #273528;
+}
+.screen-skill-title.active {
+  opacity: 1;
+  visibility: visible;
+  animation: inkTitle 1.7s ease-out both;
+}
+.screen-skill-title strong {
+  font:
+    clamp(48px, 8vw, 116px)/1.4 InkBrush,
+    "SimSun",
+    serif;
+  color: var(--effect-color);
+  font-weight: 400;
+  letter-spacing: 0.11em;
+  text-shadow:
+    0 2px 18px #f4ecdb,
+    0 0 45px #eee5d0;
+}
+.screen-skill-title small {
+  font:
+    13px "SimSun",
+    serif;
+  letter-spacing: 8px;
+  color: #3d4737;
+  background: #f2ead4ce;
+  padding: 6px 12px;
+}
+.screen-skill-title span {
+  font:
+    20px InkBrush,
+    "SimSun",
+    serif;
+  letter-spacing: 5px;
+  color: #343f2f;
+  background: #f2ead4b5;
+  padding: 3px 15px;
+}
+.ink-impact main,
+.ink-impact header {
+  animation: inkShake 0.42s ease-out;
+}
+.settings .toggle {
+  white-space: nowrap;
+}
+@keyframes inkTitle {
+  0% {
+    opacity: 0.85;
+    filter: blur(0);
+    transform: scale(0.95);
+  }
+  16% {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+@keyframes inkShake {
+  20% {
+    transform: translate(-4px, 2px);
+  }
+  40% {
+    transform: translate(3px, -2px);
+  }
+  60% {
+    transform: translate(-2px, 1px);
+  }
+  80% {
+    transform: translate(1px, -1px);
+  }
+}
+@media (max-width: 1100px) {
+  .game-layout {
+    grid-template-columns: 190px minmax(310px, 1fr) 190px;
+    gap: 16px;
+  }
+  .left-panel,
+  .right-panel {
+    padding: 12px 10px;
+  }
+  .intro h1 {
+    font-size: 44px;
+  }
+  .intro:after {
+    margin-right: 8px;
+  }
+}
+@media (max-width: 820px) {
+  body {
+    background-size: auto 100vh;
+    background-position: center top;
+  }
+  .intro {
+    padding: 25px 4px;
+  }
+  .intro h1 {
+    font-size: 36px;
+    letter-spacing: 3px;
+  }
+  .intro:after {
+    width: 35px;
+    height: 41px;
+    font-size: 30px;
+    margin-right: 4px;
+  }
+  .intro-note {
+    display: none;
+  }
+  .game-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 15px;
+  }
+  .left-panel {
+    padding: 12px;
+  }
+  .right-panel {
+    padding: 15px 12px;
+  }
+  .settings {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .settings .primary {
+    grid-column: 1/-1;
+    grid-row: 3;
+    text-align: center;
+    padding: 9px;
+    font-size: 24px;
+  }
+  .settings .primary span {
+    float: none;
+    margin-left: 30px;
+  }
+  .settings .toggle {
+    font-size: 9px;
+    gap: 3px;
+  }
+  .settings .toggle input {
+    margin: 0;
+  }
+  .mode b {
+    font-size: 23px;
+  }
+  .mode small {
+    font-size: 9px;
+  }
+  .quote {
+    display: none;
+  }
+  .skill-card {
+    gap: 4px;
+    padding: 9px 5px;
+  }
+  .skill-card .symbol {
+    width: 23px;
+    font-size: 24px;
+  }
+  .skill-card b {
+    font-size: 17px;
+    letter-spacing: 0;
+  }
+  .skill-card small {
+    font-size: 8px;
+  }
+  .skill-card .cost {
+    font-size: 14px;
+  }
+  .screen-skill-title small {
+    font-size: 10px;
+    letter-spacing: 4px;
+  }
+  .screen-skill-title span {
+    font-size: 16px;
+    letter-spacing: 3px;
+  }
+  .player-id b {
+    font-size: 17px;
+  }
+}
+.piece text {
+  font-family: ChessPiece, "KaiTi", "STKaiti", "SimSun", serif;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 0;
+  dominant-baseline: central;
+}
+.avatar,
+.revive-choice b,
+.revived-piece b {
+  font-family: ChessPiece, "KaiTi", "STKaiti", "SimSun", serif;
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen-skill-title.active {
+    animation: none;
+  }
+  .ink-impact main,
+  .ink-impact header,
+  .blast-preview {
+    animation: none;
+  }
+}
+#revivePocket {
+  border-top: 1px solid #69745255;
+  padding-top: 12px;
+  margin: 10px 0 14px;
+}
+#revivePieces {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.revive-choice {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  background: #f0e8d6;
+  border: 1px solid #74785866;
+  color: #33422e;
+}
+.revive-choice b {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  font:
+    29px InkBrush,
+    "SimSun",
+    serif;
+  font-weight: 400;
+}
+.revive-choice.red {
+  color: #992f25;
+}
+.revive-choice small {
+  font-size: 10px;
+  color: #6a624e;
+}
+.revive-choice.selected {
+  border: 2px solid #992f25;
+  background: #e2d7b8;
+  padding: 4px 6px;
+}
+.revive-choice:disabled {
+  opacity: 0.62;
+}
+.revive-choice[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px #992f2516;
+}
+#reviveSummary {
+  font-size: 10px;
+  line-height: 1.8;
+  color: #71513b;
+  margin: 8px 0 0;
+}
+.screen-skill-title .revived-piece {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: transparent;
+  padding: 15px 5px;
+  color: #253528;
+  letter-spacing: 2px;
+}
+.revived-piece b {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border: 3px double currentColor;
+  border-radius: 50%;
+  background: #f3ead5;
+  font:
+    72px InkBrush,
+    "SimSun",
+    serif;
+  font-weight: 400;
+  box-shadow: 0 0 35px #e7e6cabb;
+}
+.screen-skill-title .revived-piece.red {
+  color: #992f25;
+}
+.revived-piece em {
+  font:
+    18px "SimSun",
+    serif;
+  font-style: normal;
+  color: #333c2b;
+  background: #f0e7d1db;
+  padding: 7px 12px;
+}
+@media (max-width: 820px) {
+  .revived-piece b {
+    width: 76px;
+    height: 76px;
+    font-size: 58px;
+  }
+  .revived-piece em {
+    font-size: 15px;
+  }
+  .screen-skill-title .revived-piece {
+    gap: 8px;
+  }
+}
+.avatar,
+.revive-choice b,
+.revived-piece b {
+  font-family: ChessPiece, "KaiTi", "STKaiti", "SimSun", serif;
+  font-weight: 600;
+}
